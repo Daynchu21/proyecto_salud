@@ -31,6 +31,7 @@ interface ChatWebSocket {
     recipientId?: string,
     additionalData?: Record<string, any>
   ) => boolean;
+  sendChatMessageRaw: (payload: Record<string, any>) => boolean;
   sendTypingNotification: (
     chatId: string,
     recipientId: string,
@@ -65,6 +66,7 @@ interface ChatWebSocketContextType {
     recipientId?: string,
     additionalData?: Record<string, any>
   ) => boolean;
+  sendChatMessageRaw: (payload: Record<string, any>) => boolean;
   sendTypingNotification: (
     chatId: string,
     recipientId: string,
@@ -109,10 +111,7 @@ export const ChatWebSocketProvider: React.FC<Props> = ({ children, user }) => {
     const connectionHandler = async (connected: boolean) => {
       setIsConnected(connected);
       if (connected) {
-        // ✅ Emitimos evento global
         EventBus.emit("websocket:reconnected");
-
-        // ✅ Y reenviamos todos los mensajes pendientes
         await resendAllPendingMessages();
       }
     };
@@ -148,6 +147,11 @@ export const ChatWebSocketProvider: React.FC<Props> = ({ children, user }) => {
       recipientId,
       additionalData
     );
+  };
+
+  const sendChatMessageRaw = (payload: Record<string, any>) => {
+    if (!chatWebSocket) return false;
+    return chatWebSocket.sendChatMessageRaw(payload);
   };
 
   const sendTypingNotification = (
@@ -217,7 +221,7 @@ export const ChatWebSocketProvider: React.FC<Props> = ({ children, user }) => {
       });
 
       if (message.sender.id !== user.id) {
-        // TODO: implementar sonido si lo necesitás
+        // Agregar sonido u otras acciones si se desea
       }
     };
 
@@ -234,6 +238,7 @@ export const ChatWebSocketProvider: React.FC<Props> = ({ children, user }) => {
         unreadCount,
         unreadMessages,
         sendChatMessage,
+        sendChatMessageRaw,
         sendTypingNotification,
         onChatMessages,
         onChatMessage,

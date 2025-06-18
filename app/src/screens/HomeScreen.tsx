@@ -1,4 +1,9 @@
 import { FontAwesome } from "@expo/vector-icons";
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import React, { useEffect } from "react";
 import {
   Alert,
@@ -20,6 +25,9 @@ import { useLoadUserInfo } from "../hook/userInfo";
 
 export default function HomeScreen() {
   const { userInfo } = useLoadUserInfo();
+  const route = useRoute();
+  const refreshTrigger = (route.params as { refresh?: boolean })?.refresh;
+  const navigation = useNavigation();
 
   const {
     emergencyInfo,
@@ -32,6 +40,15 @@ export default function HomeScreen() {
     refreshing,
     setRefreshing,
   } = useEmergencyHandler(userInfo);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (refreshTrigger) {
+        (navigation as any).setParams({ refresh: false });
+      }
+      onRefresh();
+    }, [refreshTrigger])
+  );
 
   useEffect(() => {
     fetchData();
@@ -94,21 +111,73 @@ export default function HomeScreen() {
     }
   }, [showNextStateConfirm]);
 
+  const renderNextActionButton = () => {
+    if (!emergencyInfo) return null;
+    switch (emergencyInfo.estado) {
+      case "EN_CAMINO":
+        return (
+          <TouchableOpacity
+            style={styles.buttonOnWay}
+            onPress={() => setShowNextStateConfirm(true)}
+          >
+            <Text style={styles.buttonText}>cambiar a "unidad en sitio"</Text>
+          </TouchableOpacity>
+        );
+
+      case "EN_DOMICILIO":
+        return (
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => setShowNextStateConfirm(true)}
+          >
+            <Text style={styles.buttonText}>Comenzar traslado</Text>
+          </TouchableOpacity>
+        );
+      case "EN_SITIO":
+        return (
+          <TouchableOpacity
+            style={styles.buttonOnWay}
+            onPress={() => setShowNextStateConfirm(true)}
+          >
+            <Text style={styles.buttonText}>
+              Cambiar a "Unidad en traslado"
+            </Text>
+          </TouchableOpacity>
+        );
+
+      case "EN_TRASLADO":
+        return (
+          <TouchableOpacity
+            style={styles.buttonOnWay}
+            onPress={() => setShowNextStateConfirm(true)}
+          >
+            <Text style={styles.buttonText}>
+              cambiar a "Emergencia Finalizada"
+            </Text>
+          </TouchableOpacity>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <ScrollView
-      contentContainerStyle={styles.container}
+      contentContainerStyle={styles.scrollContent}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <View style={{ flex: 1, paddingBottom: 20, gap: 12 }}>
+      <View style={styles.container}>
         <LiveClock />
-        <View style={styles.containerMovil}>
-          <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-            {emergencyInfo?.movilidadName ?? "Desconocido"}
-          </Text>
-        </View>
-
+        {emergencyInfo?.movilidadName && (
+          <View style={styles.containerMovil}>
+            <Text style={{ fontSize: 18, fontWeight: "bold" }}>
+              {emergencyInfo?.movilidadName}
+            </Text>
+          </View>
+        )}
         {emergencyInfo ? (
           <>
             <EmergencyHeader
@@ -139,20 +208,7 @@ export default function HomeScreen() {
                   <Text style={styles.buttonText}>Iniciar atención</Text>
                 </TouchableOpacity>
               ) : (
-                <>
-                  <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => setShowNextStateConfirm(true)}
-                  >
-                    <Text style={styles.buttonText}>Avanzar estado</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.button} onPress={() => {}}>
-                    <Text style={styles.buttonText}>
-                      Cambiar a "Emergencia finalizada"
-                    </Text>
-                  </TouchableOpacity>
-                </>
+                renderNextActionButton()
               )}
             </View>
           </>
@@ -175,10 +231,16 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scrollContent: {
     padding: 12,
     backgroundColor: "#f8f9fb",
-    height: "100%",
+    flexGrow: 1,
+  },
+  container: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
   },
   centeredContainer: {
     flex: 1,
@@ -204,7 +266,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   button: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#22c55e",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    elevation: 3,
+    marginBottom: 8,
+  },
+
+  buttonOnWay: {
+    backgroundColor: "#3b82f6",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,

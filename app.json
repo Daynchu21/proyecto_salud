@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Necesitamos acceder al micrófono para grabar mensajes de voz."
       },
-      "bundleIdentifier": "com.daynchu20.proyectosaludapp"
+      "bundleIdentifier": "com.daynchu20.proyectosaludapp",
+      "runtimeVersion": "1.0.0"
     },
     "android": {
       "icon": "./assets/icons/icon_1024.png",
@@ -26,12 +27,19 @@
       "permissions": [
         "RECORD_AUDIO",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "googleMaps": {
-        "apiKey": "AIzaSyDWnHTJmR22Z7tQGDg46tr6fyuZWkgNsMo"
+      "config": {
+        "googleMaps": {
+          "apiKey": "process.env.GOOGLE_MAPS_API_KEY"
+        }
       },
-      "package": "com.daynchu20.proyectosaludapp"
+      "package": "com.daynchu20.proyectosaludapp",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -45,7 +53,9 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#ffffff",
-          "sounds": ["./assets/alerta.mp3"]
+          "sounds": [
+            "./assets/alerta.mp3"
+          ]
         }
       ],
       [
@@ -55,7 +65,10 @@
         }
       ]
     ],
-    "assetBundlePatterns": ["**/*", "assets/alerta.mp3"],
+    "assetBundlePatterns": [
+      "**/*",
+      "assets/alerta.mp3"
+    ],
     "experiments": {
       "typedRoutes": true
     },
@@ -67,6 +80,9 @@
       "apiStatusUrl": "https://back-status-salud.fly.dev",
       "analyticsEnabled": false
     },
-    "owner": "daynchu20"
+    "owner": "daynchu20",
+    "updates": {
+      "url": "https://u.expo.dev/50525bba-4d50-4097-b119-be4f6112bc17"
+    }
   }
 }

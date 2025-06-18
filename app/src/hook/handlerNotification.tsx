@@ -1,43 +1,37 @@
-// NotificationHandler.tsx
-import { NavigationProp, useNavigation } from "@react-navigation/native";
+import { NavigationContainerRef } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
-import React, { useEffect } from "react";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
-const NotificationHandler: React.FC = () => {
-  const navigation = useNavigation<NavigationProp<any>>();
+let navigator: NavigationContainerRef<any> | null = null;
+let isReady = false;
 
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
-
-        console.log("🔔 Notificación tocada:", data);
-
-        if (typeof data?.screen === "string") {
-          navigation.navigate(data.screen, {
-            ...data,
-          });
-        } else {
-          console.warn("⚠️ 'screen' inválida:", data?.screen);
-        }
-      }
-    );
-
-    return () => {
-      subscription.remove();
-    };
-  }, [navigation]);
-
-  return null;
+export const setNavigator = (navRef: NavigationContainerRef<any>) => {
+  navigator = navRef;
 };
 
-export default NotificationHandler;
+export const setIsReady = () => {
+  isReady = true;
+};
+
+export const navigateTo = (screen: string, params: any = {}) => {
+  if (navigator && isReady) {
+    navigator.navigate(screen, params);
+  } else {
+    console.warn("⛔ Navegación no lista");
+  }
+};
+
+export const setupNotificationHandler = () => {
+  Notifications.addNotificationResponseReceivedListener((response) => {
+    const data = response.notification.request.content.data;
+
+    if (data?.screen && typeof data.screen === "string" && navigator) {
+      const screen = data.screen;
+      const { screen: _, ...params } = data;
+      navigator.navigate(screen, {
+        ...params,
+      });
+    } else {
+      console.warn("⚠️ 'screen' inválido o sin navigator");
+    }
+  });
+};

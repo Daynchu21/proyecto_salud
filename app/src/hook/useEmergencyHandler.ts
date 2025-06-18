@@ -28,17 +28,24 @@ export function useEmergencyHandler(userInfo: any) {
 
   const fetchData = async () => {
     if (userInfo?.roles !== "AMBULANCIA") return;
+
     try {
+      setRefreshing(true);
+
       const resp = await EmergencyApi(userInfo.ambulanceId ?? 0);
+
       if (resp && resp.length > 0) {
         setEmergencyInfo(resp[0]);
+      } else {
+        setEmergencyInfo(undefined); // limpiar si no hay emergencias
       }
-    } catch (error) {
-      console.error("Error fetching emergency data:", error);
-      Alert.alert(
-        "Error",
-        "No se pudo obtener la información de la emergencia."
+    } catch (error: any) {
+      console.error(error);
+      ErrorManager.showError(
+        error.message || "Error al obtener datos de emergencia"
       );
+    } finally {
+      setRefreshing(false); // esto se asegura de siempre apagar el loading
     }
   };
 
@@ -54,14 +61,6 @@ export function useEmergencyHandler(userInfo: any) {
     }
 
     try {
-      console.log(
-        "estados",
-        currentState,
-        "id",
-        id,
-        "ambulanceId",
-        ambulanceId
-      );
       let action = undefined;
       if (currentState === "PENDIENTE") {
         action = updateEmergencyAppPending(id, ambulanceId);
@@ -69,7 +68,6 @@ export function useEmergencyHandler(userInfo: any) {
         action = updateEmergencyApp(id, ambulanceId, currentState);
       }
       const result = await action;
-      console.log("Resultado de updateEmergencyApp:", result);
       if (result?.payload?.status !== "success") {
         ErrorManager.showError(result?.payload?.toast?.message);
         return;

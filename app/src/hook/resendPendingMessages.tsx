@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SendMessage } from "../api/chats"; // ajustá la ruta a tu proyecto
+import { ErrorManager } from "../utils/errorHandler";
 
 let isResending = false;
 
@@ -20,8 +21,8 @@ export const resendPendingMessages = async (
     try {
       await SendMessage(chatId, msg.content);
       successfullySent.push(msg);
-    } catch (error) {
-      console.log("Error al reenviar", error);
+    } catch (error: any) {
+      ErrorManager.showError(error.message);
       break; // si uno falla, no sigas
     }
   }

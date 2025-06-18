@@ -2,7 +2,7 @@
 import { triggerLogout } from "../utils/authHandler";
 import { ErrorManager } from "../utils/errorHandler";
 
-const BASE_URL = process.env.EXPO_PUBLIC_LOCAL_API_IP;
+//const BASE_URL = process.env.EXPO_PUBLIC_LOCAL_API_IP;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
@@ -18,10 +18,16 @@ const buildUrl = (
   endpoint: string,
   params?: Record<string, string | number>
 ): string => {
+  const isDev = process.env.NODE_ENV !== "production";
+
   const query = params
     ? "?" + new URLSearchParams(params as Record<string, string>).toString()
     : "";
-  return `${BASE_URL}${endpoint}${query}`;
+  return `${
+    isDev
+      ? process.env.EXPO_PUBLIC_LOCAL_API_URL
+      : process.env.EXPO_PUBLIC_LOCAL_API_IP
+  }${endpoint}${query}`;
 };
 
 const defaultHeaders = {
@@ -51,7 +57,6 @@ const handleResponse = async <R>(response: Response): Promise<R> => {
 
     return data!;
   } catch (error: any) {
-    console.error("❌ Error al procesar la respuesta:", error);
     ErrorManager.showError(error.message || error.Error || "Error desconocido");
     return Promise.reject(error);
   }
@@ -80,7 +85,7 @@ const request = async <T = any, R = any>({
     const response = await fetch(url, config);
     return await handleResponse<R>(response);
   } catch (error: any) {
-    console.error("❌ Error en la petición HTTP:", error);
+    ErrorManager.showError(error.message || error.Error || "Error desconocido");
     return error;
   }
 };

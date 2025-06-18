@@ -5,7 +5,6 @@ let showErrorCallback: ErrorCallback | null = null;
 
 export const ErrorManager = {
   registerCallback(callback: ErrorCallback) {
-    console.log("✅ Error callback registrado");
     showErrorCallback = callback;
   },
 

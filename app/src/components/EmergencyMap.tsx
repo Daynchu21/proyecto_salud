@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
-import MapView, { LatLng, Marker, Polyline, Region } from "react-native-maps";
+import MapView, {
+  LatLng,
+  Marker,
+  Polyline,
+  PROVIDER_GOOGLE,
+  Region,
+} from "react-native-maps";
 
 export interface Emergency {
   latitud: number;
@@ -75,7 +81,7 @@ export default function EmergencyMap({ emergency, ambulanceId }: Props) {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        provider="google"
+        provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFillObject}
         initialRegion={{
           latitude: ambulanceCoordsSock.latitud,
@@ -94,7 +100,7 @@ export default function EmergencyMap({ emergency, ambulanceId }: Props) {
           description={emergency.movilidadName}
         >
           <Image
-            source={require("../assets/ambulancia-roja.png")}
+            source={require("../../../assets/ambulancia-roja.png")}
             style={{ width: 40, height: 40, resizeMode: "contain" }}
           />
         </Marker>

@@ -31,7 +31,6 @@ export interface EmergencyIF {
 }
 
 export const EmergencyApi = async (ambulanceId: string) => {
-  console.log("Fetching emergencires for ambulance:", ambulanceId);
   return await http.get<Array<EmergencyIF>>(
     getEmergencyByAmbulanceUrl(ambulanceId)
   );

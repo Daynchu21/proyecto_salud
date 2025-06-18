@@ -4,6 +4,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import React from "react";
 import { Image } from "react-native";
+import { useChatWebSocket } from "../config/chatWebsocket";
 import ChatScreen from "../screens/ChatScreen";
 import HomeScreen from "../screens/HomeScreen";
 import ProfileScreen from "../screens/ProfileScreen";
@@ -11,15 +12,17 @@ import ProfileScreen from "../screens/ProfileScreen";
 const Tab = createBottomTabNavigator();
 
 export default function AppTabs() {
+  const { unreadCount } = useChatWebSocket();
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerTitle: () => (
           <Image
-            source={require("../assets/ecco-logo.png")}
+            source={require("../../../assets/icons/icon_1024.png")}
             style={{
               width: 120,
-              height: 40,
+              height: 120,
               resizeMode: "contain",
               display: "flex",
             }}
@@ -34,6 +37,7 @@ export default function AppTabs() {
           tabBarIcon: ({ color }) => (
             <Feather name="alert-triangle" size={24} color={color} />
           ),
+          tabBarActiveTintColor: "red",
         }}
         name="Emergencias"
         component={HomeScreen}
@@ -45,6 +49,8 @@ export default function AppTabs() {
           tabBarIcon: ({ color }) => (
             <FontAwesome size={28} name="wechat" color={color} />
           ),
+          tabBarActiveTintColor: "green",
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
         component={ChatScreen}
       />
@@ -55,6 +61,7 @@ export default function AppTabs() {
           tabBarIcon: ({ color }) => (
             <FontAwesome name="user" size={24} color={color} />
           ),
+          tabBarActiveTintColor: "blue",
         }}
         component={ProfileScreen}
       />

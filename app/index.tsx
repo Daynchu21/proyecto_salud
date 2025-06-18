@@ -1,28 +1,61 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Alert } from "react-native";
 import AppWrapper from "./src/components/AppWrapper";
 import { WebSocketProvider } from "./src/components/web-sockets";
 import { ChatWebSocketProvider } from "./src/config/chatWebsocket";
 import { AuthProvider, useAuth } from "./src/context/authContext";
-import Navigation from "./src/navigation";
+
+import {
+  NavigationContainer,
+  NavigationContainerRef,
+} from "@react-navigation/native";
+import { ErrorProvider } from "./src/context/errorContext";
+import {
+  setIsReady,
+  setNavigator,
+  setupNotificationHandler,
+} from "./src/hook/handlerNotification";
+import AppTabs from "./src/navigation/AppTabs";
+import AuthStack from "./src/navigation/AuthStack";
 import AppBlockedScreen from "./src/utils/status-app";
 
-function InnerApp() {
-  const { userInfo } = useAuth();
+function InnerApp({
+  navigationRef,
+}: {
+  navigationRef: React.RefObject<NavigationContainerRef<any> | null>;
+}) {
+  const { userInfo, isLoggedIn } = useAuth();
 
-  const content = <Navigation />;
-
-  return userInfo ? (
-    <WebSocketProvider user={userInfo}>
-      <ChatWebSocketProvider user={userInfo}>{content}</ChatWebSocketProvider>
-    </WebSocketProvider>
-  ) : (
-    content
+  return (
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => {
+        if (navigationRef.current) {
+          setNavigator(navigationRef.current);
+          setIsReady();
+          setupNotificationHandler();
+        }
+      }}
+    >
+      <ErrorProvider>
+        {isLoggedIn ? (
+          <WebSocketProvider user={userInfo}>
+            <ChatWebSocketProvider user={userInfo}>
+              <AppTabs />
+            </ChatWebSocketProvider>
+          </WebSocketProvider>
+        ) : (
+          <AuthStack />
+        )}
+      </ErrorProvider>
+    </NavigationContainer>
   );
 }
 
 export default function App() {
   const [appBlocked, setAppBlocked] = React.useState(false);
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+
   React.useEffect(() => {
     const checkAppStatus = async () => {
       try {
@@ -38,7 +71,6 @@ export default function App() {
         }
 
         const data: { activo: boolean } = await response.json();
-
         if (data && data.activo === false) {
           setAppBlocked(true);
           Alert.alert(
@@ -58,7 +90,11 @@ export default function App() {
   return (
     <AppWrapper>
       <AuthProvider>
-        {appBlocked ? <AppBlockedScreen /> : <InnerApp />}
+        {appBlocked ? (
+          <AppBlockedScreen />
+        ) : (
+          <InnerApp navigationRef={navigationRef} />
+        )}
       </AuthProvider>
     </AppWrapper>
   );

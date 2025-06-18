@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { Alert } from "react-native";
+import { navigateTo } from "../hook/handlerNotification";
 
 interface WebSocketContextType {
   ws: WebSocket | null;
@@ -44,11 +45,10 @@ export const WebSocketProvider = ({ children, user }: Props) => {
     if (!user) return;
 
     const socket = new WebSocket(
-      process.env.EXPO_PUBLIC_POSITION_WS_URL || "ws://localhost:3001"
+      process.env.EXPO_PUBLIC_NEXT_POSITION_WS_URL || "ws://localhost:3001"
     );
 
     socket.onopen = () => {
-      console.log("✅ Conectado al WebSocket");
       setIsConnected(true);
       setReconnectAttempts(0);
       socket.send(
@@ -70,10 +70,8 @@ export const WebSocketProvider = ({ children, user }: Props) => {
           await AsyncStorage.setItem("emergencyData", JSON.stringify(data));
           break;
         case "emergencyStateUpdate":
-          Alert.alert(
-            "🔄 Estado actualizado",
-            "El estado de la emergencia cambió."
-          );
+          navigateTo("Emergencias", { emergencyId: 1, refresh: true });
+
           break;
         default:
           break;
@@ -91,11 +89,6 @@ export const WebSocketProvider = ({ children, user }: Props) => {
 
       if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         const delay = getReconnectDelay(reconnectAttempts);
-        console.log(
-          `🔁 Reintentando en ${delay / 1000}s... intento ${
-            reconnectAttempts + 1
-          }/${MAX_RECONNECT_ATTEMPTS}`
-        );
         setReconnectAttempts((prev) => prev + 1);
         setTimeout(connectWebSocket, delay);
       } else {
@@ -110,7 +103,7 @@ export const WebSocketProvider = ({ children, user }: Props) => {
   };
 
   useEffect(() => {
-    // connectWebSocket();
+    connectWebSocket();
     return () => {
       ws?.close();
     };

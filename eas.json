@@ -13,6 +13,7 @@
     },
     "production": {
       "env": {
+        "environment": "production",
         "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON"
       },
       "android": {

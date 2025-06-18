@@ -30,7 +30,7 @@ export default function LoginScreen() {
       <View style={styles.container}>
         <View style={styles.card}>
           <Image
-            source={require("../assets/ecco-logo.png")} // Reemplazá con tu logo real
+            source={require("../../../assets/icons/icon_1024.png")}
             style={styles.logo}
             resizeMode="contain"
           />

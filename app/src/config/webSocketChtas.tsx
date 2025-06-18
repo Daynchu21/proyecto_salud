@@ -47,7 +47,6 @@ export class ChatWebSocket {
     );
 
     this.socket.onopen = () => {
-      console.log("Conexión WebSocket establecida");
       this.isConnected = true;
       this.reconnectAttempts = 0;
       this.notifyConnectionHandlers(true);
@@ -71,7 +70,6 @@ export class ChatWebSocket {
     };
 
     this.socket.onclose = () => {
-      console.log("Conexión WebSocket cerrada");
       this.isConnected = false;
       this.notifyConnectionHandlers(false);
       if (this.pingIntervalId) {
@@ -90,10 +88,6 @@ export class ChatWebSocket {
   attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(
-        `Intento de reconexión ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
-      );
-
       setTimeout(() => {
         this.connect();
       }, this.reconnectDelay * this.reconnectAttempts);
@@ -238,6 +232,10 @@ export class ChatWebSocket {
         }
       }
     };
+  }
+
+  sendChatMessageRaw(payload: Record<string, any>): boolean {
+    return this.sendMessage("chat_message", payload);
   }
 
   onConnectionChange(handler: ConnectionHandler) {

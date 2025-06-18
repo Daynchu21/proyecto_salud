@@ -20,5 +20,3 @@ const outputPath = path.join(
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, Buffer.from(base64, "base64"));
-
-console.log("✅ google-services.json restaurado correctamente en android/app.");

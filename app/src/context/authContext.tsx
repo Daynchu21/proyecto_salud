@@ -10,6 +10,7 @@ import React, {
 import { Alert } from "react-native";
 import { loginApi } from "../api/users";
 import { setLogout } from "../utils/authHandler";
+import { ErrorManager } from "../utils/errorHandler";
 
 type AuthContextType = {
   isLoggedIn: boolean;
@@ -51,7 +52,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoggedIn(true);
         setUserInfo(user);
       }
-    } catch (error) {
+    } catch (error: any) {
+      ErrorManager.showError(error.message || error.Error);
       throw new Error("Credenciales inválidas");
     }
   };

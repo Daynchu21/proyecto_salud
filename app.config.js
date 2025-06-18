@@ -2,7 +2,7 @@ import "dotenv/config";
 
 export default ({ config }) => ({
   ...config,
-  name: "MiApp",
+  name: "Emergencias",
   slug: "miapp",
   version: "1.0.0",
   orientation: "portrait",
@@ -10,6 +10,11 @@ export default ({ config }) => ({
   android: {
     package: "com.daynchu20.proyectosaludapp",
     googleServicesFile: "./google-services.json",
+    config: {
+      googleMaps: {
+        apiKey: process.env.GOOGLE_MAPS_API_KEY,
+      },
+    },
   },
   extra: {
     apiStatusUrl: process.env.EXPO_PUBLIC_API_KEY_STATUS,

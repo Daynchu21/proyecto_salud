@@ -1,5 +1,6 @@
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { RecordingPresets, useAudioPlayer, useAudioRecorder } from "expo-audio";
 import * as Notifications from "expo-notifications";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -18,20 +19,14 @@ import { useChatWebSocket } from "../config/chatWebsocket";
 import { formatDateTime } from "../hook/date";
 import { resendPendingMessages } from "../hook/resendPendingMessages";
 import { EventBus } from "../utils/EventBus";
+import { useChatAudio } from "./ChatAudioControls";
+import ChatAudioPlayer from "./ChatAudioPlayer";
 
 interface User {
   id: string;
   firstName: string;
   lastName: string;
   roles: string;
-}
-
-interface Message {
-  id: string;
-  sender: User;
-  type: "text";
-  content: string;
-  createdAt: string;
 }
 
 interface Chat {
@@ -49,8 +44,6 @@ interface ChatMessagesProps {
 export default function ChatMessages({
   chat,
   onMessageSent,
-  showInfoPanel,
-  onToggleInfoPanel,
 }: ChatMessagesProps) {
   const [messages, setMessages] = useState<any>([]);
   const [newMessage, setNewMessage] = useState<string>("");
@@ -59,7 +52,27 @@ export default function ChatMessages({
   const [user, setUserInfoRaw] = React.useState<userInfoIF>();
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const player = useAudioPlayer();
+
+  const [, forceUpdate] = useState(0);
+  const { startRecording, stopRecording } = useChatAudio((base64Audio) => {
+    sendChatMessageRaw({
+      type: "chat_message",
+      chatId: chat.id,
+      audio: base64Audio,
+    });
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (player.playing) {
+        forceUpdate((prev) => prev + 1);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [player]);
 
   React.useEffect(() => {
     const fetchUser = async () => {
@@ -91,7 +104,7 @@ export default function ChatMessages({
 
   const {
     sendChatMessage,
-    sendTypingNotification,
+    sendChatMessageRaw,
     onChatMessage,
     onTyping,
     markChatAsRead,
@@ -229,6 +242,7 @@ export default function ChatMessages({
           const messageKey =
             msg.id || msg.localId || `${msg.timestamp}_${msg.content}`;
 
+          const isAudio = msg.type === "audio";
           return isMine ? (
             <View
               key={messageKey}
@@ -237,7 +251,12 @@ export default function ChatMessages({
               <Text style={[styles.senderName, styles.myMessageText]}>
                 {msg.sender.firstName} {msg.sender.lastName}
               </Text>
-              <Text style={styles.myMessageText}>{msg.content}</Text>
+
+              {isAudio ? (
+                <ChatAudioPlayer audioUrl={msg.audioUrl} isMine={isMine} />
+              ) : (
+                <Text style={styles.myMessageText}>{msg.content}</Text>
+              )}
 
               {msg.pending && (
                 <View
@@ -271,7 +290,13 @@ export default function ChatMessages({
               <Text style={styles.senderName}>
                 {msg.sender.firstName} {msg.sender.lastName}
               </Text>
-              <Text style={styles.messageText}>{msg.content}</Text>
+
+              {isAudio ? (
+                <ChatAudioPlayer audioUrl={msg.audioUrl} isMine={isMine} />
+              ) : (
+                <Text style={styles.messageText}>{msg.content}</Text>
+              )}
+
               <Text style={styles.messageTime}>
                 {formatDateTime(msg.createdAt)}
               </Text>
@@ -288,6 +313,16 @@ export default function ChatMessages({
           placeholder="Escribe un mensaje..."
           multiline
         />
+        <TouchableOpacity
+          style={styles.sendButton}
+          onPress={audioRecorder.isRecording ? stopRecording : startRecording}
+        >
+          <FontAwesome
+            name={audioRecorder.isRecording ? "stop" : "microphone"}
+            size={20}
+            color="#fff"
+          />
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.sendButton}
           onPress={handleSubmit}
