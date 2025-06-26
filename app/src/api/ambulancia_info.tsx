@@ -1,3 +1,4 @@
+import { prioridadEN } from "../components/config-emergency";
 import http from "./httpClient";
 
 const getEmergencyByAmbulanceUrl = (id: string) =>
@@ -19,7 +20,7 @@ export interface EmergencyIF {
   pacienteEdad: number | null;
   pacienteDNI: string | null;
   tipoEmergencia: string;
-  prioridad: string;
+  prioridad: prioridadEN;
   notas: string;
   contactoNombre: string | null;
   contactoTelefono: string | null;

@@ -1,52 +1,59 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useState } from "react";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { GetChats } from "../api/chats";
 import ChatMessagesCMP from "../components/ChatMessage";
+import { useChatWebSocket } from "../config/chatWebsocket";
 import { useLoadUserInfo } from "../hook/userInfo";
 
 export default function MessagesScreen() {
-  const [chats, setChats] = useState<any>([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const { userInfo } = useLoadUserInfo();
+  const { isConnected: isWebSocketConnected } = useChatWebSocket();
 
-  useEffect(() => {
-    if (userInfo?.roles === "AMBULANCIA") {
-      fetchChats();
-    }
-  }, [userInfo]);
+  const fetchChats = React.useCallback(async () => {
+    setLoading(true);
 
-  const fetchChats = async () => {
     try {
       const response = await GetChats();
-
-      if (response) {
-        if (response.length > 0) {
-          setSelectedChat(response[0]);
+      if (response && response.length > 0) {
+        const firstChat = response[0];
+        setSelectedChat(firstChat);
+        // }
+      } else {
+        if (selectedChat !== null) {
+          setSelectedChat(null);
         }
-        setChats(response);
       }
     } catch (error) {
       console.error("Error al obtener chats:", error);
-      setChats([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedChat]);
 
-  if (!userInfo || userInfo.roles !== "AMBULANCIA") {
-    return (
-      <View style={styles.centered}>
-        <Text>Esta sección es exclusiva para ambulancias.</Text>
-      </View>
-    );
-  }
+  const onRefresh = React.useCallback(() => {
+    fetchChats();
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (userInfo?.roles === "AMBULANCIA" && isWebSocketConnected) {
+        onRefresh();
+      }
+    }, [userInfo, isWebSocketConnected])
+  );
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+        <Image
+          source={require("../../../assets/loading_GIF.gif")}
+          style={styles.gif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -56,7 +63,6 @@ export default function MessagesScreen() {
       {selectedChat ? (
         <ChatMessagesCMP
           chat={selectedChat}
-          onMessageSent={fetchChats}
           showInfoPanel={showInfoPanel}
           onToggleInfoPanel={setShowInfoPanel}
         />
@@ -71,4 +77,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   noChat: { textAlign: "center", marginTop: 20, color: "#999" },
+  gif: {
+    width: 150,
+    height: 150,
+  },
 });

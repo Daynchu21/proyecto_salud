@@ -8,6 +8,11 @@
     "scheme": "proyectosaludapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/icons/icon_1024.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -53,9 +58,7 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#ffffff",
-          "sounds": [
-            "./assets/alerta.mp3"
-          ]
+          "sounds": ["./assets/alerta.mp3"]
         }
       ],
       [
@@ -65,10 +68,7 @@
         }
       ]
     ],
-    "assetBundlePatterns": [
-      "**/*",
-      "assets/alerta.mp3"
-    ],
+    "assetBundlePatterns": ["**/*", "assets/alerta.mp3"],
     "experiments": {
       "typedRoutes": true
     },

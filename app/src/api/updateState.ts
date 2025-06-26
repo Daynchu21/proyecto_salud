@@ -5,7 +5,7 @@ const updateEmergencyPendingUrl = "/api/emergencies/updatePendingEmergency";
 
 interface emergencyBody {
   id: string;
-  movilidadId: string;
+  ambulanceId: string;
   currentState: string;
 }
 
@@ -16,10 +16,10 @@ interface emergencyPendingBody {
 
 export const updateEmergencyApp = async (
   id: string,
-  movilidadId: string,
-  currentState: string
+  currentState: string,
+  ambulanceId: string
 ) => {
-  const body: emergencyBody = { id, movilidadId, currentState };
+  const body: emergencyBody = { id, currentState, ambulanceId };
   return await http.post<emergencyBody, any>(updateEmergencyUrl, body);
 };
 

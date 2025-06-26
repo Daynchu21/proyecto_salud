@@ -11,14 +11,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { setTokenMobile } from "../api/token";
-import EmergencyHeader from "../components/EmergencyHeader";
-import EmergencyMap, { Emergency } from "../components/EmergencyMap";
+import {
+  getLabelByValue,
+  getNextEmergencyState,
+} from "../components/config-emergency";
+import EmergencyContainer from "../components/EmergencyContainer";
 import LiveClock from "../components/LiveClock";
-import { formatDateTime } from "../hook/date";
 import { registerForPushNotificationsAsync } from "../hook/getToken";
 import { useEmergencyHandler } from "../hook/useEmergencyHandler";
 import { useLoadUserInfo } from "../hook/userInfo";
@@ -27,6 +28,7 @@ export default function HomeScreen() {
   const { userInfo } = useLoadUserInfo();
   const route = useRoute();
   const refreshTrigger = (route.params as { refresh?: boolean })?.refresh;
+  const [loadingButton, setLoadingButton] = React.useState(false);
   const navigation = useNavigation();
 
   const {
@@ -39,7 +41,7 @@ export default function HomeScreen() {
     setShowNextStateConfirm,
     refreshing,
     setRefreshing,
-  } = useEmergencyHandler(userInfo);
+  } = useEmergencyHandler(userInfo, setLoadingButton);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -90,9 +92,18 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (showNextStateConfirm) {
+      const textTitle =
+        emergencyInfo?.estado !== "EN_TRASLADO"
+          ? "Confirmar cambio"
+          : "Confirmar finalizada";
+
+      const nexState = getNextEmergencyState(emergencyInfo?.estado ?? "");
       Alert.alert(
-        "Confirmar cambio",
-        "¿Estás seguro que deseas avanzar al siguiente estado?",
+        textTitle,
+        `¿Estás seguro que deseas actualizar el estado a ${getLabelByValue(
+          "EMERGENCY_STATE_BUTTONS",
+          nexState ?? ""
+        )}?`,
         [
           { text: "Cancelar", onPress: () => setShowNextStateConfirm(false) },
           {
@@ -110,57 +121,6 @@ export default function HomeScreen() {
       );
     }
   }, [showNextStateConfirm]);
-
-  const renderNextActionButton = () => {
-    if (!emergencyInfo) return null;
-    switch (emergencyInfo.estado) {
-      case "EN_CAMINO":
-        return (
-          <TouchableOpacity
-            style={styles.buttonOnWay}
-            onPress={() => setShowNextStateConfirm(true)}
-          >
-            <Text style={styles.buttonText}>cambiar a "unidad en sitio"</Text>
-          </TouchableOpacity>
-        );
-
-      case "EN_DOMICILIO":
-        return (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => setShowNextStateConfirm(true)}
-          >
-            <Text style={styles.buttonText}>Comenzar traslado</Text>
-          </TouchableOpacity>
-        );
-      case "EN_SITIO":
-        return (
-          <TouchableOpacity
-            style={styles.buttonOnWay}
-            onPress={() => setShowNextStateConfirm(true)}
-          >
-            <Text style={styles.buttonText}>
-              Cambiar a "Unidad en traslado"
-            </Text>
-          </TouchableOpacity>
-        );
-
-      case "EN_TRASLADO":
-        return (
-          <TouchableOpacity
-            style={styles.buttonOnWay}
-            onPress={() => setShowNextStateConfirm(true)}
-          >
-            <Text style={styles.buttonText}>
-              cambiar a "Emergencia Finalizada"
-            </Text>
-          </TouchableOpacity>
-        );
-
-      default:
-        return null;
-    }
-  };
 
   return (
     <ScrollView
@@ -180,37 +140,13 @@ export default function HomeScreen() {
         )}
         {emergencyInfo ? (
           <>
-            <EmergencyHeader
-              id={emergencyInfo.codigo ?? "000"}
-              fechaLlamada={
-                formatDateTime(emergencyInfo.fechaLlamada) ?? "Desconocida"
-              }
-              tipo={emergencyInfo.tipoEmergencia ?? "Desconocido"}
-              paciente={emergencyInfo.pacienteNombre ?? "Desconocido"}
-              domicilio={emergencyInfo.domicilio ?? "Desconocido"}
-              hospital={emergencyInfo.hospitalName ?? "Desconocido"}
+            <EmergencyContainer
+              emergencyInfo={emergencyInfo}
+              ambulanciaId={userInfo?.ambulanceId ?? ""}
+              loadingButton={loadingButton}
+              setShowAcceptConfirm={setShowAcceptConfirm}
+              setShowNextStateConfirm={setShowNextStateConfirm}
             />
-
-            {(emergencyInfo.estado === "EN_CAMINO" ||
-              emergencyInfo.estado === "EN_TRASLADO") && (
-              <EmergencyMap
-                emergency={emergencyInfo as Emergency}
-                ambulanceId={userInfo?.ambulanceId ?? "0"}
-              />
-            )}
-
-            <View style={{ marginTop: 12 }}>
-              {emergencyInfo.estado === "PENDIENTE" ? (
-                <TouchableOpacity
-                  style={styles.button}
-                  onPress={() => setShowAcceptConfirm(true)}
-                >
-                  <Text style={styles.buttonText}>Iniciar atención</Text>
-                </TouchableOpacity>
-              ) : (
-                renderNextActionButton()
-              )}
-            </View>
           </>
         ) : (
           <View style={styles.centeredContainer}>
@@ -264,29 +200,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
-  },
-  button: {
-    backgroundColor: "#22c55e",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    elevation: 3,
-    marginBottom: 8,
-  },
-
-  buttonOnWay: {
-    backgroundColor: "#3b82f6",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    elevation: 3,
-    marginBottom: 8,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
   },
 });

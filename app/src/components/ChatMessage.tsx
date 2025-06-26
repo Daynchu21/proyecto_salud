@@ -18,6 +18,7 @@ import { userInfoIF } from "../api/users";
 import { useChatWebSocket } from "../config/chatWebsocket";
 import { formatDateTime } from "../hook/date";
 import { resendPendingMessages } from "../hook/resendPendingMessages";
+import { useUniqueMessages } from "../hook/useUniqueMessages";
 import { EventBus } from "../utils/EventBus";
 import { useChatAudio } from "./ChatAudioControls";
 import ChatAudioPlayer from "./ChatAudioPlayer";
@@ -30,26 +31,22 @@ interface User {
 }
 
 interface Chat {
-  id: string;
+  id: number;
   sender: User;
 }
 
 interface ChatMessagesProps {
   chat: Chat;
-  onMessageSent: () => void;
   showInfoPanel: boolean;
   onToggleInfoPanel?: (show: boolean) => void;
 }
 
-export default function ChatMessages({
-  chat,
-  onMessageSent,
-}: ChatMessagesProps) {
-  const [messages, setMessages] = useState<any>([]);
+export default function ChatMessages({ chat }: ChatMessagesProps) {
   const [newMessage, setNewMessage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [user, setUserInfoRaw] = React.useState<userInfoIF>();
+  const { messages, addMessage, setAllMessages } = useUniqueMessages();
 
   const scrollViewRef = useRef<ScrollView>(null);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -92,7 +89,7 @@ export default function ChatMessages({
 
   useEffect(() => {
     const handleReconnect = () => {
-      resendPendingMessages(chat.id, fetchMessages);
+      resendPendingMessages(chat.id.toString(), loadMessagesOnce);
     };
 
     EventBus.on("websocket:reconnected", handleReconnect);
@@ -110,13 +107,33 @@ export default function ChatMessages({
     markChatAsRead,
   } = useChatWebSocket();
 
-  const currentUserId = user?.id;
+  const currentUserId = Number(user?.id);
 
   useEffect(() => {
-    fetchMessages();
+    markChatAsRead(chat.id);
+  }, [chat.id]);
 
-    const messageHandler = (message: any) => {
-      setMessages((prevMessages: any) => [...prevMessages, message]);
+  const loadMessagesOnce = async () => {
+    try {
+      setLoading(true);
+      const response = await GetChatIdMessages(chat.id.toString());
+      if (response) {
+        setAllMessages(response);
+      }
+    } catch (error) {
+      Alert.alert("Error", "No se pudieron cargar los mensajes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scrollToBottom = () => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  };
+
+  const messageHandler = React.useCallback(
+    (message: any) => {
+      addMessage(message);
       scrollToBottom();
       if (
         message.sender.id !== user?.id &&
@@ -131,47 +148,39 @@ export default function ChatMessages({
           trigger: null,
         });
       }
-    };
+    },
+    [addMessage, scrollToBottom, user?.id, chat.id]
+  );
 
-    const typingHandler = (userId: string, isTyping: boolean) => {
+  const typingHandler = React.useCallback(
+    (userId: number, isTyping: boolean) => {
       if (userId !== currentUserId) {
         setTypingUsers((prev) => {
-          if (isTyping) {
-            return [...prev, userId];
-          } else {
-            return prev.filter((id) => id !== userId);
-          }
+          const stringUserId = String(userId);
+          return isTyping
+            ? [...new Set([...prev, stringUserId])]
+            : prev.filter((id) => id !== stringUserId);
         });
       }
-    };
+    },
+    [currentUserId]
+  );
 
+  useEffect(() => {
+    // Load messages only when chat.id changes
+    if (chat.id) {
+      loadMessagesOnce();
+    }
+
+    // Subscribe to websocket events
     const unsubscribeMessage = onChatMessage(chat.id, messageHandler);
     const unsubscribeTyping = onTyping(chat.id, typingHandler);
-
-    markChatAsRead(chat.id);
 
     return () => {
       unsubscribeMessage();
       unsubscribeTyping();
     };
-  }, [chat.id]);
-
-  const fetchMessages = async () => {
-    try {
-      const response = await GetChatIdMessages(chat.id);
-      if (response) {
-        setMessages(response);
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudieron cargar los mensajes");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const scrollToBottom = () => {
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  };
+  }, []);
 
   const handleInputChange = (text: string) => {
     setNewMessage(text);
@@ -189,13 +198,21 @@ export default function ChatMessages({
       if (!success) {
         throw new Error("WebSocket failed");
       }
+      // If WebSocket sends successfully, add message to local state immediately
+      addMessage({
+        content: messageToSend,
+        timestamp: Date.now(),
+        sender: user, // Assuming 'user' is the sender
+        id: `local_${Date.now()}`, // Add a temporary ID for local display
+      });
+      // No need to call onMessageSent if it was for refetching chats
     } catch {
       try {
-        await SendMessage(chat.id, messageToSend);
-        fetchMessages();
-        onMessageSent();
+        await SendMessage(chat.id.toString(), messageToSend);
+        loadMessagesOnce(); // Reload messages to ensure consistency after API send
+        // No need to call onMessageSent if it was for refetching chats
       } catch {
-        await savePendingMessage(chat.id, messageToSend);
+        await savePendingMessage(chat.id.toString(), messageToSend);
         Alert.alert(
           "Sin conexión",
           "Tu mensaje será enviado cuando vuelvas a estar online."
@@ -219,7 +236,7 @@ export default function ChatMessages({
     messages.push(message);
     await AsyncStorage.setItem(pendingKey, JSON.stringify(messages));
 
-    setMessages((prev: any) => [...prev, message]); // Mostrar en UI
+    addMessage(message);
   };
 
   if (loading) {
@@ -240,7 +257,9 @@ export default function ChatMessages({
         {messages.map((msg: any) => {
           const isMine = msg.sender.id === user?.id;
           const messageKey =
-            msg.id || msg.localId || `${msg.timestamp}_${msg.content}`;
+            msg.id?.toString() ??
+            msg.localId?.toString() ??
+            `${msg.timestamp}_${Math.random().toString(36).substr(2, 9)}`;
 
           const isAudio = msg.type === "audio";
           return isMine ? (
@@ -313,23 +332,27 @@ export default function ChatMessages({
           placeholder="Escribe un mensaje..."
           multiline
         />
-        <TouchableOpacity
-          style={styles.sendButton}
-          onPress={audioRecorder.isRecording ? stopRecording : startRecording}
-        >
-          <FontAwesome
-            name={audioRecorder.isRecording ? "stop" : "microphone"}
-            size={20}
-            color="#fff"
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.sendButton}
-          onPress={handleSubmit}
-          disabled={!newMessage.trim()}
-        >
-          <FontAwesome name="send" size={20} color="#fff" />
-        </TouchableOpacity>
+        {newMessage.length === 0 ? (
+          <TouchableOpacity
+            style={styles.sendButton}
+            onPress={audioRecorder.isRecording ? stopRecording : startRecording}
+          >
+            <FontAwesome
+              name={audioRecorder.isRecording ? "stop" : "microphone"}
+              size={20}
+              color="#fff"
+            />
+          </TouchableOpacity>
+        ) : null}
+        {newMessage.length !== 0 ? (
+          <TouchableOpacity
+            style={styles.sendButton}
+            onPress={handleSubmit}
+            disabled={!newMessage.trim()}
+          >
+            <FontAwesome name="send" size={20} color="#fff" />
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );

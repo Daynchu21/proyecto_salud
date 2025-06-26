@@ -44,14 +44,15 @@ const handleResponse = async <R>(response: Response): Promise<R> => {
     }
 
     if (!response.ok) {
-      if (response.status === 403) {
+      if (response.status === 401 || response.status === 403) {
         console.warn(
           "🔒 Sesión expirada o acceso denegado. Cerrando sesión..."
         );
         await triggerLogout(); // esta función debería limpiar la sesión y redirigir al login
+        ErrorManager.showError("Sesión expirada");
       }
 
-      const errorMessage = (data as any)?.message || "Error en la petición";
+      const errorMessage = (response as any)?.message || "Error en la petición";
       throw new Error(errorMessage);
     }
 

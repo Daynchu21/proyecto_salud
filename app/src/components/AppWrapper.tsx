@@ -1,6 +1,7 @@
 // components/AppWrapper.js
 import React from "react";
-import { Platform, SafeAreaView, StatusBar, StyleSheet } from "react-native";
+import { StatusBar, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AppWrapper({
   children,
@@ -9,7 +10,7 @@ export default function AppWrapper({
 }) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" translucent />
       {children}
     </SafeAreaView>
   );
@@ -18,6 +19,5 @@ export default function AppWrapper({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
 });

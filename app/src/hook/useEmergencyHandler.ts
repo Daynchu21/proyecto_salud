@@ -8,7 +8,10 @@ import {
 import { useWebSocket } from "../components/web-sockets";
 import { ErrorManager } from "../utils/errorHandler";
 
-export function useEmergencyHandler(userInfo: any) {
+export function useEmergencyHandler(
+  userInfo: any,
+  setLoadingButton: (key: boolean) => void
+) {
   const [emergencyInfo, setEmergencyInfo] = useState<EmergencyIF>();
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
@@ -61,11 +64,12 @@ export function useEmergencyHandler(userInfo: any) {
     }
 
     try {
+      setLoadingButton(true);
       let action = undefined;
       if (currentState === "PENDIENTE") {
         action = updateEmergencyAppPending(id, ambulanceId);
       } else {
-        action = updateEmergencyApp(id, ambulanceId, currentState);
+        action = updateEmergencyApp(id, currentState, ambulanceId);
       }
       const result = await action;
       if (result?.payload?.status !== "success") {
@@ -84,6 +88,8 @@ export function useEmergencyHandler(userInfo: any) {
     } catch (err) {
       console.error("Error al avanzar estado:", err);
       setIsNetworkError(true);
+    } finally {
+      setLoadingButton(false);
     }
   };
 

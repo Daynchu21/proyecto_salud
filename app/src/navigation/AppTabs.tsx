@@ -12,7 +12,7 @@ import ProfileScreen from "../screens/ProfileScreen";
 const Tab = createBottomTabNavigator();
 
 export default function AppTabs() {
-  const { unreadCount } = useChatWebSocket();
+  const { totalUnreadCount } = useChatWebSocket();
 
   return (
     <Tab.Navigator
@@ -43,14 +43,14 @@ export default function AppTabs() {
         component={HomeScreen}
       />
       <Tab.Screen
-        name="Comunicación"
+        name="Comunicacion"
         options={{
           title: "Comunicación",
           tabBarIcon: ({ color }) => (
             <FontAwesome size={28} name="wechat" color={color} />
           ),
           tabBarActiveTintColor: "green",
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadge: totalUnreadCount > 0 ? totalUnreadCount : undefined,
         }}
         component={ChatScreen}
       />

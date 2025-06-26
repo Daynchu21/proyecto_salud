@@ -1,87 +1,122 @@
 import React, {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import { resendAllPendingMessages } from "../hook/resendAllPendingMessages";
+import { ErrorManager } from "../utils/errorHandler";
 import { EventBus } from "../utils/EventBus";
+import { useNotificationSound } from "../utils/playNotificationSound.ts";
 import { getChatWebSocket } from "./webSocketChtas";
 
-// ==== TYPES ==== //
+// --- TYPES ---
 interface User {
-  id: string;
+  id: string; // Keep as string if it comes from storage as string
   roles: string;
   [key: string]: any;
 }
 
 export interface MessageChat {
-  chatId: string;
-  sender: { id: string };
-  [key: string]: any;
+  chatId: number; // Changed to number based on Prisma schema
+  sender: { id: number; firstName: string; lastName: string; roles: string }; // Changed sender.id to number
+  content?: string;
+  type: string; // 'text', 'audio'
+  audioUrl?: string;
+  audioDuration?: number;
+  createdAt: string; // From backend, it's a string date
+  id: number; // Message ID, changed to number
+  isRead: boolean;
+  // Properties added by backend for unread count updates (if included in message payload)
+  unreadCountForChat?: number;
+  totalUnreadCount?: number;
 }
 
-interface ChatWebSocket {
+interface UnreadMessages {
+  [chatId: number]: number; // Key is now number
+}
+
+// These interfaces are for the ChatWebSocket client, not the context value
+interface IChatWebSocket {
   connect: () => void;
   disconnect: () => void;
   sendChatMessage: (
-    chatId: string,
+    chatId: number,
     content: string,
-    recipientId?: string,
+    recipientId?: number,
     additionalData?: Record<string, any>
   ) => boolean;
+
   sendChatMessageRaw: (payload: Record<string, any>) => boolean;
   sendTypingNotification: (
-    chatId: string,
-    recipientId: string,
+    chatId: number, // Changed to number
+    recipientId: number, // Changed to number
     isTyping: boolean
   ) => boolean;
   onConnectionChange: (handler: (connected: boolean) => void) => () => void;
   onError: (handler: (error: string) => void) => () => void;
   onChatMessages: (handler: (message: MessageChat) => void) => () => void;
   onChatMessage: (
-    chatId: string,
+    chatId: number, // Changed to number
     handler: (message: MessageChat) => void
   ) => () => void;
   onTyping: (
-    chatId: string,
-    handler: (userId: string, isTyping: boolean) => void
+    chatId: number, // Changed to number
+    handler: (userId: number, isTyping: boolean) => void // Changed userId to number
+  ) => () => void;
+  isConnected: boolean;
+  reconnectAttempts: number;
+  lastMessageReceived: number;
+  onInitialUnreadCounts: (
+    handler: (data: {
+      unreadMessagesByChat: UnreadMessages;
+      totalUnreadCount: number;
+    }) => void
+  ) => () => void;
+  onUnreadCountsUpdated: (
+    handler: (data: {
+      chatId: number;
+      unreadMessagesByChat: UnreadMessages;
+      totalUnreadCount: number;
+    }) => void
+  ) => () => void;
+  onChatReadStatusUpdated: (
+    handler: (data: { chatId: number; unreadCount: number }) => void
   ) => () => void;
 }
 
-interface UnreadMessages {
-  [chatId: string]: number;
-}
-
 interface ChatWebSocketContextType {
-  chatWebSocket: ChatWebSocket | null;
+  chatWebSocket: IChatWebSocket | null;
   isConnected: boolean;
   error: string | null;
-  unreadCount: number;
-  unreadMessages: UnreadMessages;
+  totalUnreadCount: number; // Renamed for clarity
+  unreadMessagesByChat: UnreadMessages; // Renamed for clarity
   sendChatMessage: (
-    chatId: string,
+    chatId: number, // Changed to number
     content: string,
-    recipientId?: string,
+    recipientId?: number, // Changed to number
     additionalData?: Record<string, any>
   ) => boolean;
   sendChatMessageRaw: (payload: Record<string, any>) => boolean;
   sendTypingNotification: (
-    chatId: string,
-    recipientId: string,
+    chatId: number, // Changed to number
+    recipientId: number, // Changed to number
     isTyping: boolean
   ) => boolean;
   onChatMessages: (handler: (message: MessageChat) => void) => () => void;
   onChatMessage: (
-    chatId: string,
+    chatId: number, // Changed to number
     handler: (message: MessageChat) => void
   ) => () => void;
   onTyping: (
-    chatId: string,
-    handler: (userId: string, isTyping: boolean) => void
+    chatId: number, // Changed to number
+    handler: (userId: number, isTyping: boolean) => void // Changed userId to number
   ) => () => void;
-  markChatAsRead: (chatId: string) => void;
+  markChatAsRead: (chatId: number) => void;
   markAllAsRead: () => void;
 }
 
@@ -89,145 +124,302 @@ const ChatWebSocketContext = createContext<ChatWebSocketContextType | null>(
   null
 );
 
-interface Props {
+interface ChatWebSocketProviderProps {
   children: ReactNode;
   user: User;
 }
 
-export const ChatWebSocketProvider: React.FC<Props> = ({ children, user }) => {
-  const [chatWebSocket, setChatWebSocket] = useState<ChatWebSocket | null>(
+export const ChatWebSocketProvider: React.FC<ChatWebSocketProviderProps> = ({
+  children,
+  user,
+}) => {
+  const [chatWebSocket, setChatWebSocket] = useState<IChatWebSocket | null>(
     null
   );
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [unreadMessages, setUnreadMessages] = useState<UnreadMessages>({});
+  // States for unread counts
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  const [unreadMessagesByChat, setUnreadMessagesByChat] =
+    useState<UnreadMessages>({});
+  const chatWSRef = useRef<ReturnType<typeof getChatWebSocket> | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
+  const playNotificationSound = useNotificationSound();
+  // Ensure user.id is parsed to a number consistently for WebSocket interactions
+  const userIdAsNumber = user.id ? parseInt(user.id, 10) : NaN;
 
-    const ws = getChatWebSocket(user.id, user.roles);
+  // Ref to track AppState to prevent background reconnection attempts
+  const appState = useRef(AppState.currentState);
 
-    const connectionHandler = async (connected: boolean) => {
+  // --- WebSocket Event Handlers ---
+  const handleConnectionChange = useCallback(
+    async (connected: boolean) => {
       setIsConnected(connected);
       if (connected) {
+        setError(null);
         EventBus.emit("websocket:reconnected");
         await resendAllPendingMessages();
       }
-    };
+    },
+    [chatWebSocket] // Depend on chatWebSocket to call onRequestUnreadCounts
+  );
 
-    const errorHandler = (errorMessage: string) => {
-      setError(errorMessage);
-      console.error("Chat WebSocket error:", errorMessage);
-    };
+  const handleWebSocketError = useCallback((errorMessage: string) => {
+    setError(errorMessage);
+    console.error("Chat WebSocket error:", errorMessage);
+    ErrorManager.showError(errorMessage);
+  }, []);
 
-    const removeConnectionHandler = ws.onConnectionChange(connectionHandler);
-    const removeErrorHandler = ws.onError(errorHandler);
+  const handleNewChatMessage = useCallback(
+    (message: MessageChat) => {
+      if (message.sender.id !== userIdAsNumber) {
+        playNotificationSound();
+      }
+    },
+    [userIdAsNumber, playNotificationSound]
+  );
 
-    ws.connect();
-    setChatWebSocket(ws);
+  const handleInitialUnreadCounts = useCallback(
+    (data: {
+      unreadMessagesByChat: UnreadMessages;
+      totalUnreadCount: number;
+    }) => {
+      setUnreadMessagesByChat(data.unreadMessagesByChat);
+      setTotalUnreadCount(data.totalUnreadCount);
+    },
+    []
+  );
+
+  const handleUnreadCountsUpdated = useCallback(
+    (data: {
+      chatId: number;
+      unreadMessagesByChat: UnreadMessages;
+      totalUnreadCount: number;
+    }) => {
+      setUnreadMessagesByChat(data.unreadMessagesByChat);
+      setTotalUnreadCount(data.totalUnreadCount);
+    },
+    []
+  );
+
+  const handleChatReadStatusUpdated = useCallback(
+    (data: { chatId: number; unreadCount: number }) => {
+      setUnreadMessagesByChat((prev) => {
+        const newUnread = { ...prev };
+        if (data.unreadCount === 0) {
+          delete newUnread[data.chatId];
+        } else {
+          newUnread[data.chatId] = data.unreadCount;
+        }
+        return newUnread;
+      });
+      // totalUnreadCount will be updated by the useEffect below
+    },
+    []
+  );
+
+  // --- Main WebSocket Connection Effect ---
+
+  useEffect(() => {
+    if (!user || isNaN(userIdAsNumber) || !user.roles) {
+      console.warn(
+        "ChatWebSocketProvider: User object is incomplete or invalid, cannot establish WebSocket connection."
+      );
+      return;
+    }
+
+    if (!chatWSRef.current) {
+      const wsInstance = getChatWebSocket(user.id, user.roles, appState);
+      wsInstance.connect();
+      chatWSRef.current = wsInstance;
+      setChatWebSocket(wsInstance);
+    }
+
+    const ws = chatWSRef.current;
+
+    const cleanupHandlers = [
+      ws.onConnectionChange(handleConnectionChange),
+      ws.onError(handleWebSocketError),
+      ws.onChatMessages(handleNewChatMessage),
+      ws.onInitialUnreadCounts(handleInitialUnreadCounts),
+      ws.onUnreadCountsUpdated(handleUnreadCountsUpdated),
+      ws.onChatReadStatusUpdated(handleChatReadStatusUpdated),
+    ];
 
     return () => {
-      removeConnectionHandler();
-      removeErrorHandler();
-      ws.disconnect();
+      cleanupHandlers.forEach((unsubscribe) => unsubscribe());
+      // NOTA: no llamamos disconnect() aquí
     };
-  }, [user]);
-
-  const sendChatMessage = (
-    chatId: string,
-    content: string,
-    recipientId?: string,
-    additionalData: Record<string, any> = {}
-  ) => {
-    if (!chatWebSocket) return false;
-    return chatWebSocket.sendChatMessage(
-      chatId,
-      content,
-      recipientId,
-      additionalData
-    );
-  };
-
-  const sendChatMessageRaw = (payload: Record<string, any>) => {
-    if (!chatWebSocket) return false;
-    return chatWebSocket.sendChatMessageRaw(payload);
-  };
-
-  const sendTypingNotification = (
-    chatId: string,
-    recipientId: string,
-    isTyping: boolean
-  ) => {
-    if (!chatWebSocket) return false;
-    return chatWebSocket.sendTypingNotification(chatId, recipientId, isTyping);
-  };
-
-  const onChatMessages = (handler: (message: MessageChat) => void) => {
-    if (!chatWebSocket) return () => {};
-    return chatWebSocket.onChatMessages(handler);
-  };
-
-  const onChatMessage = (
-    chatId: string,
-    handler: (message: MessageChat) => void
-  ) => {
-    if (!chatWebSocket) return () => {};
-    return chatWebSocket.onChatMessage(chatId, handler);
-  };
-
-  const onTyping = (
-    chatId: string,
-    handler: (userId: string, isTyping: boolean) => void
-  ) => {
-    if (!chatWebSocket) return () => {};
-    return chatWebSocket.onTyping(chatId, handler);
-  };
-
-  const markChatAsRead = (chatId: string) => {
-    if (!chatWebSocket) return;
-    setUnreadMessages((prev) => {
-      if (!prev[chatId]) return prev;
-      const newUnread = { ...prev };
-      delete newUnread[chatId];
-      return newUnread;
-    });
-  };
-
-  const markAllAsRead = () => {
-    if (!chatWebSocket) return;
-    setUnreadMessages({});
-  };
+  }, [
+    userIdAsNumber,
+    user?.id,
+    user?.roles,
+    handleConnectionChange,
+    handleWebSocketError,
+    handleNewChatMessage,
+    handleInitialUnreadCounts,
+    handleUnreadCountsUpdated,
+    handleChatReadStatusUpdated,
+  ]);
 
   useEffect(() => {
-    const totalUnread = Object.values(unreadMessages).reduce(
-      (sum, count) => sum + count,
-      0
-    );
-    setUnreadCount(totalUnread);
-  }, [unreadMessages]);
+    return () => {
+      chatWSRef.current?.disconnect();
+      chatWSRef.current = null;
+    };
+  }, [user?.id]);
 
+  // --- App State Change Effect for Reconnection ---
   useEffect(() => {
-    if (!chatWebSocket) return;
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        const prev = appState.current;
+        appState.current = nextAppState;
 
-    const handleNewMessage = (message: MessageChat) => {
-      setUnreadMessages((prev) => {
-        const chatId = message.chatId;
-        const currentCount = prev[chatId] || 0;
-        return {
-          ...prev,
-          [chatId]: currentCount + 1,
-        };
+        if (prev.match(/inactive|background/) && nextAppState === "active") {
+          const secondsSinceLastMessage =
+            chatWebSocket && chatWebSocket.lastMessageReceived
+              ? (Date.now() - chatWebSocket.lastMessageReceived) / 1000
+              : 999;
+
+          if (
+            chatWebSocket &&
+            (!chatWebSocket.isConnected || secondsSinceLastMessage > 30)
+          ) {
+            chatWebSocket.disconnect();
+            chatWebSocket.connect();
+          }
+        }
+      }
+    );
+
+    return () => subscription.remove();
+  }, [chatWebSocket]);
+
+  // --- Memoized functions for context value ---
+  const memoizedSendChatMessage = useCallback(
+    (
+      chatId: number, // Changed to number
+      content: string,
+      recipientId?: number, // Changed to number
+      additionalData: Record<string, any> = {}
+    ) => {
+      if (!chatWebSocket) {
+        ErrorManager.showError(
+          "No se pudo enviar el mensaje: Conexión de chat no disponible."
+        );
+        return false;
+      }
+      return chatWebSocket.sendChatMessage(
+        chatId,
+        content,
+        recipientId,
+        additionalData
+      );
+    },
+    [chatWebSocket]
+  );
+
+  const memoizedSendChatMessageRaw = useCallback(
+    (payload: Record<string, any>) => {
+      if (!chatWebSocket) {
+        ErrorManager.showError(
+          "No se pudo enviar el mensaje raw: Conexión de chat no disponible."
+        );
+        return false;
+      }
+      return chatWebSocket.sendChatMessageRaw(payload);
+    },
+    [chatWebSocket]
+  );
+
+  const memoizedSendTypingNotification = useCallback(
+    (
+      chatId: number, // Changed to number
+      recipientId: number, // Changed to number
+      isTyping: boolean
+    ) => {
+      if (!chatWebSocket) {
+        console.warn(
+          "No se pudo enviar la notificación de escritura: Conexión de chat no disponible."
+        );
+        return false;
+      }
+      return chatWebSocket.sendTypingNotification(
+        chatId,
+        recipientId,
+        isTyping
+      );
+    },
+    [chatWebSocket]
+  );
+
+  const memoizedOnChatMessages = useCallback(
+    (handler: (message: MessageChat) => void) => {
+      if (!chatWebSocket) return () => {};
+      return chatWebSocket.onChatMessages(handler);
+    },
+    [chatWebSocket]
+  );
+
+  const memoizedOnChatMessage = useCallback(
+    (
+      chatId: number, // Changed to number
+      handler: (message: MessageChat) => void
+    ) => {
+      if (!chatWebSocket) return () => {};
+      return chatWebSocket.onChatMessage(chatId, handler);
+    },
+    [chatWebSocket]
+  );
+
+  const memoizedOnTyping = useCallback(
+    (
+      chatId: number, // Changed to number
+      handler: (userId: number, isTyping: boolean) => void // Changed userId to number
+    ) => {
+      if (!chatWebSocket) return () => {};
+      return chatWebSocket.onTyping(chatId, handler);
+    },
+    [chatWebSocket]
+  );
+
+  // FRONTEND: ChatWebSocketProvider.tsx
+
+  const markChatAsRead = useCallback(
+    (chatId: number) => {
+      // Actualización optimista: asumimos que la acción tendrá éxito y actualizamos la UI inmediatamente.
+      const currentTotal = totalUnreadCount;
+      const chatCount = unreadMessagesByChat[chatId] || 0;
+      setTotalUnreadCount(Math.max(0, currentTotal - chatCount));
+
+      setUnreadMessagesByChat((prev) => {
+        if (!prev[chatId]) return prev;
+        const newUnread = { ...prev };
+        delete newUnread[chatId];
+        return newUnread;
       });
 
-      if (message.sender.id !== user.id) {
-        // Agregar sonido u otras acciones si se desea
-      }
-    };
+      // Enviar mensaje al backend para que confirme el cambio en la BBDD
+      chatWebSocket?.sendChatMessageRaw({
+        type: "mark_read",
+        chatId: chatId,
+      });
+    },
+    [chatWebSocket, unreadMessagesByChat, totalUnreadCount] // Añadir dependencias
+  );
 
-    const unsubscribe = chatWebSocket.onChatMessages(handleNewMessage);
-    return () => unsubscribe();
-  }, [chatWebSocket, user]);
+  const markAllAsRead = useCallback(() => {
+    // Optimistic UI update
+    setUnreadMessagesByChat({});
+
+    // Send WebSocket message to backend for marking all as read
+    chatWebSocket?.sendChatMessageRaw({
+      type: "mark_all_read",
+      userId: userIdAsNumber, // Backend needs to know whose messages to mark
+    });
+  }, [chatWebSocket, userIdAsNumber]);
 
   return (
     <ChatWebSocketContext.Provider
@@ -235,14 +427,14 @@ export const ChatWebSocketProvider: React.FC<Props> = ({ children, user }) => {
         chatWebSocket,
         isConnected,
         error,
-        unreadCount,
-        unreadMessages,
-        sendChatMessage,
-        sendChatMessageRaw,
-        sendTypingNotification,
-        onChatMessages,
-        onChatMessage,
-        onTyping,
+        totalUnreadCount,
+        unreadMessagesByChat,
+        sendChatMessage: memoizedSendChatMessage,
+        sendChatMessageRaw: memoizedSendChatMessageRaw,
+        sendTypingNotification: memoizedSendTypingNotification,
+        onChatMessages: memoizedOnChatMessages,
+        onChatMessage: memoizedOnChatMessage,
+        onTyping: memoizedOnTyping,
         markChatAsRead,
         markAllAsRead,
       }}
@@ -255,9 +447,10 @@ export const ChatWebSocketProvider: React.FC<Props> = ({ children, user }) => {
 // Custom hook
 export const useChatWebSocket = (): ChatWebSocketContextType => {
   const context = useContext(ChatWebSocketContext);
-  if (!context)
+  if (!context) {
     throw new Error(
       "useChatWebSocket debe usarse dentro de ChatWebSocketProvider"
     );
+  }
   return context;
 };
