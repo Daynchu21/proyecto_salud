@@ -1,6 +1,7 @@
 import { FontAwesome } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -16,10 +17,21 @@ export default function LoginScreen() {
   const [usuario, setUsuario] = useState("");
   const [contrasena, setContrasena] = useState("");
   const [secure, setSecure] = useState(true);
+  const [loading, setLoading] = useState(false);
+
   const { login } = useAuth();
 
-  const handleLogin = () => {
-    login(usuario, contrasena);
+  const handleLogin = async () => {
+    if (loading) return; // Previene múltiples clics
+    setLoading(true);
+    try {
+      await login(usuario, contrasena);
+      // Redireccionar o mostrar feedback si es necesario
+    } catch (error) {
+      // Ya se maneja en el AuthContext, pero podrías mostrar feedback local también
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,14 +97,24 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <FontAwesome
-              name="sign-in"
-              size={18}
-              color="#fff"
-              style={styles.buttonIcon}
-            />
-            <Text style={styles.buttonText}>Iniciar sesión</Text>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading} // Desactiva el botón mientras carga
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={styles.buttonContent}>
+                <FontAwesome
+                  name="sign-in"
+                  size={18}
+                  color="#fff"
+                  style={styles.buttonIcon}
+                />
+                <Text style={styles.buttonText}>Iniciar sesión</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -149,14 +171,25 @@ const styles = StyleSheet.create({
     height: 45,
     color: "black",
   },
+
+  eyeButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   button: {
-    backgroundColor: "#0077c9",
+    backgroundColor: "#007bff",
+    padding: 12,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 10,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   buttonIcon: {
     marginRight: 8,
@@ -164,10 +197,5 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
-  },
-  eyeButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
   },
 });

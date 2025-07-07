@@ -1,5 +1,6 @@
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useIsFocused } from "@react-navigation/native";
 import { RecordingPresets, useAudioPlayer, useAudioRecorder } from "expo-audio";
 import * as Notifications from "expo-notifications";
 import React, { useEffect, useRef, useState } from "react";
@@ -47,6 +48,8 @@ export default function ChatMessages({ chat }: ChatMessagesProps) {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [user, setUserInfoRaw] = React.useState<userInfoIF>();
   const { messages, addMessage, setAllMessages } = useUniqueMessages();
+  const isFocus = useIsFocused();
+  const isFocusRef = useRef(isFocus);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -60,6 +63,10 @@ export default function ChatMessages({ chat }: ChatMessagesProps) {
       audio: base64Audio,
     });
   });
+
+  useEffect(() => {
+    isFocusRef.current = isFocus;
+  }, [isFocus]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -109,10 +116,6 @@ export default function ChatMessages({ chat }: ChatMessagesProps) {
 
   const currentUserId = Number(user?.id);
 
-  useEffect(() => {
-    markChatAsRead(chat.id);
-  }, [chat.id]);
-
   const loadMessagesOnce = async () => {
     try {
       setLoading(true);
@@ -135,6 +138,9 @@ export default function ChatMessages({ chat }: ChatMessagesProps) {
     (message: any) => {
       addMessage(message);
       scrollToBottom();
+      if (isFocusRef.current && message.sender.id !== user?.id) {
+        markChatAsRead(chat.id);
+      }
       if (
         message.sender.id !== user?.id &&
         message.sender.roles !== "AMBULANCIA"
@@ -149,7 +155,7 @@ export default function ChatMessages({ chat }: ChatMessagesProps) {
         });
       }
     },
-    [addMessage, scrollToBottom, user?.id, chat.id]
+    [addMessage, scrollToBottom, user?.id, chat.id, isFocus]
   );
 
   const typingHandler = React.useCallback(
@@ -168,8 +174,10 @@ export default function ChatMessages({ chat }: ChatMessagesProps) {
 
   useEffect(() => {
     // Load messages only when chat.id changes
-    if (chat.id) {
-      loadMessagesOnce();
+    if (chat.id && isFocus) {
+      loadMessagesOnce().then(() => {
+        markChatAsRead(chat.id);
+      });
     }
 
     // Subscribe to websocket events

@@ -7,6 +7,22 @@ export default ({ config }) => ({
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/icons/icon_1024.png",
+  ios: {
+    bundleIdentifier: "com.daynchu20.proyectosaludapp",
+    buildNumber: "1",
+    supportsTablet: true,
+    runtimeVersion: {
+      policy: "appVersion",
+    },
+    infoPlist: {
+      NSMicrophoneUsageDescription:
+        "Necesitamos acceder al micrófono para grabar mensajes de voz.",
+      NSLocationWhenInUseUsageDescription:
+        "Necesitamos acceder a tu ubicación para mostrar tu posición.",
+      NSLocationAlwaysUsageDescription:
+        "Se requiere acceso a la ubicación incluso en segundo plano.",
+    },
+  },
   android: {
     package: "com.daynchu20.proyectosaludapp",
     googleServicesFile: "./google-services.json",

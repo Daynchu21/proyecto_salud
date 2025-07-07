@@ -42,24 +42,28 @@ const handleResponse = async <R>(response: Response): Promise<R> => {
     if (contentType.includes("application/json")) {
       data = await response.json();
     }
-
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         console.warn(
           "🔒 Sesión expirada o acceso denegado. Cerrando sesión..."
         );
         await triggerLogout(); // esta función debería limpiar la sesión y redirigir al login
-        ErrorManager.showError("Sesión expirada");
+        throw new Error("Sesión expirada");
+      } else if (response.status === 401) {
+        const errorMessage = (response as any)?.message || "Sin Autorización";
+        await triggerLogout();
+        throw new Error(errorMessage);
+      } else {
+        const errorMessage =
+          (response as any)?.message || "Error en la petición";
+        throw new Error(errorMessage);
       }
-
-      const errorMessage = (response as any)?.message || "Error en la petición";
-      throw new Error(errorMessage);
     }
 
     return data!;
   } catch (error: any) {
     ErrorManager.showError(error.message || error.Error || "Error desconocido");
-    return Promise.reject(error);
+    throw error;
   }
 };
 
@@ -87,7 +91,7 @@ const request = async <T = any, R = any>({
     return await handleResponse<R>(response);
   } catch (error: any) {
     ErrorManager.showError(error.message || error.Error || "Error desconocido");
-    return error;
+    throw error;
   }
 };
 

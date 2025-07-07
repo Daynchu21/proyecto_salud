@@ -7,15 +7,6 @@ import ChatMessages from "./ui/ChatMessages";
 import AmbulanceMap from "./ui/info/AmbulanceMap";
 import EmergencyInfo from "./ui/info/EmergencyInfo";
 
-// Configurar manejo de notificaciones
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
 export default function MessagesPage() {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);

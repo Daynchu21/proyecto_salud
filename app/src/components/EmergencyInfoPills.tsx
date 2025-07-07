@@ -2,7 +2,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import TimeElapsed from "./TimeElapsed";
+import { getTimeDifferenceHHmm } from "../hook/date";
 import {
   getLabelByValue,
   getPriorityColor,
@@ -25,7 +25,7 @@ export default function EmergencyInfoPills({
       <View style={[styles.pill, styles.timePill]}>
         <Feather name="clock" size={16} color="#1976d2" style={styles.icon} />
         <Text style={styles.timeText}>
-          <TimeElapsed fromDateTime={fechaLlamada} />
+          {getTimeDifferenceHHmm(fechaLlamada)}
         </Text>
       </View>
 

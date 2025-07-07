@@ -78,11 +78,13 @@ export function useEmergencyHandler(
       }
 
       const nextState = result.payload.newState;
-
-      sendEmergencyStateUpdate(
-        ambulanceId,
-        `Ambulancia ${ambulanceId} - Estado actualizado a ${nextState}`
-      );
+      const updateStateWeb = {
+        ambulanceId: ambulanceId,
+        movilidadName: ambulanceId,
+        id: id,
+        estado: nextState,
+      };
+      sendEmergencyStateUpdate(ambulanceId, updateStateWeb);
       sendEmergencyNotification(ambulanceId, nextState);
       fetchData();
     } catch (err) {

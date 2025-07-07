@@ -1,3 +1,5 @@
+import { EstadoEmergencia } from "../utils/global";
+
 type Option = {
   value: string;
   label: string;
@@ -139,8 +141,16 @@ export function getLabelByValue<K extends keyof typeof OPTIONS_MAP>(
   return option ? option.label : "Desconocido";
 }
 
-export function getNextEmergencyState(currentState: string): string | null {
-  const validSequence = ["EN_CAMINO", "EN_SITIO", "EN_TRASLADO", "FINALIZADA"];
+export function getNextEmergencyState(
+  currentState: EstadoEmergencia
+): string | null {
+  const validSequence = [
+    EstadoEmergencia.PENDIENTE,
+    EstadoEmergencia.EN_CAMINO,
+    EstadoEmergencia.EN_SITIO,
+    EstadoEmergencia.EN_TRASLADO,
+    EstadoEmergencia.FINALIZADA,
+  ];
 
   const currentIndex = validSequence.indexOf(currentState);
 

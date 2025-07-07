@@ -17,7 +17,7 @@ interface WebSocketContextType {
   ws: WebSocket | null;
   ambulancesPositions: any[];
   sendEmergencyNotification: (ambulanceId: string, message: string) => boolean;
-  sendEmergencyStateUpdate: (ambulanceId: string, message: string) => boolean;
+  sendEmergencyStateUpdate: (ambulanceId: string, message: any) => boolean;
   isConnected: boolean;
   reconnectAttempts: number;
 }
@@ -37,6 +37,7 @@ const WS_TYPES = {
   EMERGENCY_STATE_UPDATE: "emergencyStateUpdate",
   PING: "ping",
   EMERGENCY_NOTIFICATION: "emergencyNotification",
+  EMERGENCY_DELETED: "emergencyDeleted",
 };
 
 export const WebSocketProvider = ({ children, user }: Props) => {
@@ -60,7 +61,6 @@ export const WebSocketProvider = ({ children, user }: Props) => {
     const jitter = Math.random() * (baseDelay * 0.2);
     return baseDelay + jitter;
   }, []);
-
   const connectWebSocket = useCallback(() => {
     if (!user || reconnectingRef.current) {
       return;
@@ -90,6 +90,7 @@ export const WebSocketProvider = ({ children, user }: Props) => {
     socket.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
+
         switch (data.type) {
           case WS_TYPES.AMBULANCES_POSITIONS:
             setAmbulancesPositions(data.ambulances);
@@ -99,6 +100,10 @@ export const WebSocketProvider = ({ children, user }: Props) => {
             break;
           case WS_TYPES.EMERGENCY_STATE_UPDATE:
             navigateTo("Emergencias", { emergencyId: 1, refresh: true });
+            break;
+          case WS_TYPES.EMERGENCY_DELETED:
+            navigateTo("Emergencias", { refresh: true });
+
             break;
           default:
             console.warn("Received unknown WebSocket message type:", data.type);
@@ -198,17 +203,18 @@ export const WebSocketProvider = ({ children, user }: Props) => {
   );
 
   const sendEmergencyStateUpdate = useCallback(
-    (ambulanceId: string, message: string): boolean => {
+    (ambulanceId: string, message: any): boolean => {
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(
           JSON.stringify({
             type: WS_TYPES.EMERGENCY_STATE_UPDATE,
             ambulanceId,
-            message,
+            message: message, // 🔥 importante: plano, no como message: {...}
           })
         );
         return true;
       }
+
       ErrorManager.showError(
         "No se pudo enviar la actualización de estado de emergencia: Conexión no disponible."
       );

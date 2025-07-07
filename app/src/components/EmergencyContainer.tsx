@@ -14,8 +14,9 @@ import {
   View,
 } from "react-native";
 import { EmergencyIF } from "../api/ambulancia_info";
-import { formatDateTime } from "../hook/date";
+import { formatLocalArgentineString } from "../hook/date";
 import { ErrorManager } from "../utils/errorHandler";
+import { EstadoEmergencia } from "../utils/global";
 import { getPriorityColor } from "./config-emergency";
 import EmergencyInfoPills from "./EmergencyInfoPills";
 import EmergencyMap, { Emergency } from "./EmergencyMap";
@@ -53,7 +54,7 @@ export default function EmergencyContainer({
         </TouchableOpacity>
       );
     switch (estado) {
-      case "PENDIENTE":
+      case EstadoEmergencia.PENDIENTE:
         return (
           <TouchableOpacity
             style={styles.button}
@@ -62,7 +63,7 @@ export default function EmergencyContainer({
             <Text style={styles.buttonText}>Iniciar atención</Text>
           </TouchableOpacity>
         );
-      case "EN_CAMINO":
+      case EstadoEmergencia.EN_CAMINO:
         return (
           <TouchableOpacity
             style={styles.buttonOnWay}
@@ -71,17 +72,7 @@ export default function EmergencyContainer({
             <Text style={styles.buttonText}>cambiar a "unidad en sitio"</Text>
           </TouchableOpacity>
         );
-
-      case "EN_DOMICILIO":
-        return (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => setShowNextStateConfirm(true)}
-          >
-            <Text style={styles.buttonText}>Comenzar traslado</Text>
-          </TouchableOpacity>
-        );
-      case "EN_SITIO":
+      case EstadoEmergencia.EN_SITIO:
         return (
           <TouchableOpacity
             style={styles.buttonOnWay}
@@ -93,7 +84,7 @@ export default function EmergencyContainer({
           </TouchableOpacity>
         );
 
-      case "EN_TRASLADO":
+      case EstadoEmergencia.EN_TRASLADO:
         return (
           <TouchableOpacity
             style={styles.buttonOnWay}
@@ -113,10 +104,11 @@ export default function EmergencyContainer({
   const openInMaps = (address: string) => {
     const query = encodeURIComponent(address);
 
+    // Asegurarse de que la URL de Google Maps sea correcta para Android
     const url =
       Platform.OS === "ios"
         ? `http://maps.apple.com/?q=${query}`
-        : `https://www.google.com/maps/search/?api=1&query=${query}`;
+        : `https://www.google.com/maps/search/?api=1&query=${query}`; // Corregido para Android
 
     Linking.canOpenURL(url)
       .then((supported) => {
@@ -136,56 +128,59 @@ export default function EmergencyContainer({
       <EmergencyInfoPills fechaLlamada={fechaLlamada} prioridad={prioridad} />
 
       <View>
-        <Text style={[styles.codeText, { color: textColor }]}>
-          {codigo}{" "}
-          <Text style={styles.dateText}>{formatDateTime(fechaLlamada)}</Text>
+        <Text style={[styles.dateText, { color: textColor }]}>
+          {`${codigo} ${formatLocalArgentineString(fechaLlamada)}`}
         </Text>
       </View>
 
-      <View style={styles.gridRow}>
-        <View style={styles.gridItem1}>
+      {/* Fila: Emergencia */}
+      <View style={styles.infoRow}>
+        <View style={styles.labelWrapper}>
           <MaterialCommunityIcons
             name="ambulance"
             size={16}
             style={styles.icon}
           />
-          <Text style={styles.label}>Emergencia:</Text>
+          <Text style={styles.labelText}>Emergencia:</Text>
         </View>
-        <Text style={styles.gridItem2}>{tipoEmergencia}</Text>
+        <Text style={styles.valueText}>{tipoEmergencia}</Text>
       </View>
 
-      <View style={styles.gridRow}>
-        <View style={styles.gridItem1}>
+      {/* Fila: Paciente */}
+      <View style={styles.infoRow}>
+        <View style={styles.labelWrapper}>
           <FontAwesome5 name="user" size={16} style={styles.icon} />
-          <Text style={styles.label}>Paciente:</Text>
+          <Text style={styles.labelText}>Paciente:</Text>
         </View>
-        <Text style={styles.gridItem2}>{pacienteNombre}</Text>
+        <Text style={styles.valueText}>{pacienteNombre}</Text>
       </View>
 
-      <View style={styles.gridRow}>
-        <View style={styles.gridItem1}>
+      {/* Fila: Domicilio */}
+      <View style={styles.infoRow}>
+        <View style={styles.labelWrapper}>
           <Entypo name="location-pin" size={16} style={styles.icon} />
-          <Text style={styles.label}>Domicilio:</Text>
+          <Text style={styles.labelText}>Domicilio:</Text>
         </View>
         <TouchableOpacity
           onPress={() => openInMaps(domicilio)}
-          style={[styles.gridItem2]}
+          style={styles.valueTextContainer} // Nuevo contenedor para el TouchableOpacity
           activeOpacity={0.7}
         >
-          <Text style={{ color: "blue" }}>{domicilio}</Text>
+          <Text style={styles.linkValueText}>{domicilio}</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.gridRow}>
-        <View style={styles.gridItem1}>
+      {/* Fila: Hospital */}
+      <View style={styles.infoRow}>
+        <View style={styles.labelWrapper}>
           <MaterialCommunityIcons
             name="hospital-building"
             size={16}
             style={styles.icon}
           />
-          <Text style={styles.label}>Hospital:</Text>
+          <Text style={styles.labelText}>Hospital:</Text>
         </View>
-        <Text style={styles.gridItem2}>{hospitalName}</Text>
+        <Text style={styles.valueText}>{hospitalName}</Text>
       </View>
 
       {(estado === "EN_CAMINO" || estado === "EN_TRASLADO") && (
@@ -194,36 +189,12 @@ export default function EmergencyContainer({
           ambulanceId={ambulanciaId}
         />
       )}
-      <View style={{ marginTop: 12 }}>{renderNextActionButton()}</View>
+      <View style={styles.buttonContainer}>{renderNextActionButton()}</View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gridRow: {
-    flexDirection: "row",
-    alignItems: "flex-start", // o center si querés verticalmente centrado
-    marginBottom: 10,
-  },
-
-  gridItem1: {
-    flexShrink: 0, // 🔒 evita que esta parte crezca
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 6,
-    minWidth: 135,
-    maxWidth: 135, // opcional: limitar ancho máximo
-  },
-
-  gridItem2: {
-    flex: 1, // 🔓 ocupa todo el espacio restante
-    padding: 6,
-  },
-  gridItem2Wrapper: {
-    flex: 1,
-    flexShrink: 1,
-    overflow: "hidden",
-  },
   container: {
     backgroundColor: "#fff",
     borderRadius: 8,
@@ -235,7 +206,53 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
-    gap: 6,
+    gap: 8,
+  },
+  buttonContainer: {
+    marginTop: 12,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  labelWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: 125,
+    flexShrink: 0,
+    marginRight: 8,
+  },
+  labelText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  valueTextContainer: {
+    flex: 1,
+  },
+  valueText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+    flexWrap: "wrap",
+  },
+  linkValueText: {
+    fontSize: 14,
+    color: "#007BFF", // Link color
+    textDecorationLine: "underline",
+    flexWrap: "wrap", // **Crucial for wrapping text within the Text component**
+    flexShrink: 1, // **Allows the Text component to shrink and wrap if needed**
+  },
+  icon: {
+    marginRight: 6,
+    color: "#007AFF",
+  },
+  codeText: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  dateText: {
+    fontSize: 16,
   },
   buttonOnWay: {
     backgroundColor: "#3b82f6",
@@ -255,28 +272,8 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginBottom: 8,
   },
-
   buttonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold",
-  },
-  icon: {
-    marginRight: 4,
-    color: "#007AFF",
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    flexShrink: 1,
-  },
-  codeText: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  dateText: {
-    fontSize: 10,
-    fontWeight: "600",
   },
 });

@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import AppWrapper from "./src/components/AppWrapper";
 import { WebSocketProvider } from "./src/components/web-sockets";
 import { ChatWebSocketProvider } from "./src/config/chatWebsocket";
@@ -9,6 +9,7 @@ import {
   NavigationContainer,
   NavigationContainerRef,
 } from "@react-navigation/native";
+import * as Notifications from "expo-notifications";
 import { ErrorProvider } from "./src/context/errorContext";
 import {
   setIsReady,
@@ -18,6 +19,25 @@ import {
 import AppTabs from "./src/navigation/AppTabs";
 import AuthStack from "./src/navigation/AuthStack";
 import AppBlockedScreen from "./src/utils/status-app";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+if (Platform.OS === "android") {
+  Notifications.setNotificationChannelAsync("default", {
+    name: "default",
+    importance: Notifications.AndroidImportance.HIGH, // ✅ necesario
+    sound: "default",
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: "#FF231F7C",
+  });
+}
 
 function InnerApp({
   navigationRef,

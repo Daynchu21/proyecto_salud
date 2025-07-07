@@ -16,10 +16,15 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Necesitamos acceder al micrófono para grabar mensajes de voz."
+        "NSMicrophoneUsageDescription": "Necesitamos acceder al micrófono para grabar mensajes de voz.",
+        "NSLocationWhenInUseUsageDescription": "Necesitamos acceder a tu ubicación para mostrar tu posición.",
+        "NSLocationAlwaysUsageDescription": "Se requiere acceso a la ubicación incluso en segundo plano."
       },
       "bundleIdentifier": "com.daynchu20.proyectosaludapp",
-      "runtimeVersion": "1.0.0"
+      "runtimeVersion": {
+        "policy": "appVersion"
+      },
+      "buildNumber": "1"
     },
     "android": {
       "icon": "./assets/icons/icon_1024.png",
@@ -58,7 +63,9 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#ffffff",
-          "sounds": ["./assets/alerta.mp3"]
+          "sounds": [
+            "./assets/alerta.mp3"
+          ]
         }
       ],
       [
@@ -66,9 +73,18 @@
         {
           "microphonePermission": "Permitir que $(PRODUCT_NAME) acceda al micrófono."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
       ]
     ],
-    "assetBundlePatterns": ["**/*", "assets/alerta.mp3"],
+    "assetBundlePatterns": [
+      "**/*",
+      "assets/alerta.mp3"
+    ],
     "experiments": {
       "typedRoutes": true
     },

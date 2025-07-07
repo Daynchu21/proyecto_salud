@@ -13,6 +13,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { SendEvents } from "../api/log_events";
 import { setTokenMobile } from "../api/token";
 import {
   getLabelByValue,
@@ -22,7 +23,9 @@ import EmergencyContainer from "../components/EmergencyContainer";
 import LiveClock from "../components/LiveClock";
 import { registerForPushNotificationsAsync } from "../hook/getToken";
 import { useEmergencyHandler } from "../hook/useEmergencyHandler";
+import { useGetLocation } from "../hook/useGetLocation";
 import { useLoadUserInfo } from "../hook/userInfo";
+import { configEvent, EstadoEmergencia } from "../utils/global";
 
 export default function HomeScreen() {
   const { userInfo } = useLoadUserInfo();
@@ -30,6 +33,7 @@ export default function HomeScreen() {
   const refreshTrigger = (route.params as { refresh?: boolean })?.refresh;
   const [loadingButton, setLoadingButton] = React.useState(false);
   const navigation = useNavigation();
+  const { getLocation } = useGetLocation();
 
   const {
     emergencyInfo,
@@ -78,6 +82,7 @@ export default function HomeScreen() {
             text: "Aceptar",
             onPress: () => {
               setShowAcceptConfirm(false);
+              sendEventsBE(emergencyInfo.estado);
               handleNextState(
                 emergencyInfo.id,
                 userInfo?.ambulanceId ?? "0",
@@ -91,13 +96,13 @@ export default function HomeScreen() {
   }, [showAcceptConfirm, emergencyInfo]);
 
   useEffect(() => {
-    if (showNextStateConfirm) {
+    if (showNextStateConfirm && emergencyInfo?.estado) {
       const textTitle =
-        emergencyInfo?.estado !== "EN_TRASLADO"
+        emergencyInfo?.estado !== EstadoEmergencia.EN_TRASLADO
           ? "Confirmar cambio"
           : "Confirmar finalizada";
 
-      const nexState = getNextEmergencyState(emergencyInfo?.estado ?? "");
+      const nexState = getNextEmergencyState(emergencyInfo?.estado);
       Alert.alert(
         textTitle,
         `¿Estás seguro que deseas actualizar el estado a ${getLabelByValue(
@@ -110,10 +115,11 @@ export default function HomeScreen() {
             text: "Aceptar",
             onPress: () => {
               setShowNextStateConfirm(false);
+              sendEventsBE(emergencyInfo.estado);
               handleNextState(
                 emergencyInfo?.id ?? "0",
                 userInfo?.ambulanceId ?? "0",
-                emergencyInfo?.estado ?? "PENDIENTE"
+                emergencyInfo?.estado ?? EstadoEmergencia.PENDIENTE
               );
             },
           },
@@ -121,6 +127,20 @@ export default function HomeScreen() {
       );
     }
   }, [showNextStateConfirm]);
+
+  const sendEventsBE = async (status: EstadoEmergencia) => {
+    const locationAddress = await getLocation();
+    const nexState = getNextEmergencyState(status);
+    if (nexState !== null) {
+      SendEvents(configEvent[nexState as EstadoEmergencia], {
+        Ciudad: !locationAddress ? "no habilitado" : locationAddress.city,
+        direccion: !locationAddress
+          ? "no habilitado"
+          : locationAddress.formattedAddress,
+        isMobile: true,
+      });
+    }
+  };
 
   return (
     <ScrollView

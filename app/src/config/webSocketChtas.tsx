@@ -77,7 +77,6 @@ export class ChatWebSocket {
     if (this.reconnectTimeoutId) clearTimeout(this.reconnectTimeoutId);
 
     const wsUrl = process.env.EXPO_PUBLIC_CHAT_WS_URL || "ws://localhost:8080";
-    console.log(wsUrl, "wsUrl");
     const connectionString = `${wsUrl}?userId=${this.userId}&userRole=${this.userRole}`;
     this.socket = new WebSocket(connectionString);
 
