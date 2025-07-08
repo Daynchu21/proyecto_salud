@@ -21,6 +21,7 @@ import {
 } from "../components/config-emergency";
 import EmergencyContainer from "../components/EmergencyContainer";
 import LiveClock from "../components/LiveClock";
+import { useServerTime } from "../context/ServerTimeContext";
 import { registerForPushNotificationsAsync } from "../hook/getToken";
 import { useEmergencyHandler } from "../hook/useEmergencyHandler";
 import { useGetLocation } from "../hook/useGetLocation";
@@ -34,6 +35,7 @@ export default function HomeScreen() {
   const [loadingButton, setLoadingButton] = React.useState(false);
   const navigation = useNavigation();
   const { getLocation } = useGetLocation();
+  const { serverTime, updateServerTime } = useServerTime();
 
   const {
     emergencyInfo,
@@ -53,6 +55,7 @@ export default function HomeScreen() {
         (navigation as any).setParams({ refresh: false });
       }
       onRefresh();
+      updateServerTime();
     }, [refreshTrigger])
   );
 
@@ -150,7 +153,7 @@ export default function HomeScreen() {
       }
     >
       <View style={styles.container}>
-        <LiveClock />
+        <LiveClock serverTime={serverTime ?? new Date()} />
         {emergencyInfo?.movilidadName && (
           <View style={styles.containerMovil}>
             <Text style={{ fontSize: 18, fontWeight: "bold" }}>
@@ -166,6 +169,7 @@ export default function HomeScreen() {
               loadingButton={loadingButton}
               setShowAcceptConfirm={setShowAcceptConfirm}
               setShowNextStateConfirm={setShowNextStateConfirm}
+              timeServerNow={serverTime ?? new Date()}
             />
           </>
         ) : (

@@ -1,17 +1,32 @@
 import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import React from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useAuth } from "../context/authContext";
 import { useLoadUserInfo } from "../hook/userInfo";
 
 export default function ProfileScreen() {
   const { logout } = useAuth();
   const { userInfo } = useLoadUserInfo();
+  const [loadingLogout, setLoadingLogout] = React.useState(false);
 
   const handleLogout = () => {
     Alert.alert("Cerrar sesión", "¿Seguro que querés cerrar sesión?", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Sí", onPress: () => logout() },
+      {
+        text: "Sí",
+        onPress: async () => {
+          setLoadingLogout(true);
+          await logout();
+          setLoadingLogout(false);
+        },
+      },
     ]);
   };
 
@@ -61,9 +76,24 @@ export default function ProfileScreen() {
         <Text style={styles.value}>{userInfo?.telephone}</Text>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <FontAwesome name="sign-out" size={18} color="#fff" />
-        <Text style={styles.logoutText}>Cerrar sesión</Text>
+      <TouchableOpacity
+        style={[styles.logoutButton, loadingLogout && styles.buttonDisabled]}
+        onPress={handleLogout}
+        disabled={loadingLogout}
+      >
+        {loadingLogout ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <View style={styles.buttonContent}>
+            <FontAwesome
+              name="sign-out"
+              size={18}
+              color="#fff"
+              style={styles.buttonIcon}
+            />
+            <Text style={styles.logoutText}>Cerrar sesión</Text>
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -118,5 +148,15 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontWeight: "bold",
     fontSize: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
 });

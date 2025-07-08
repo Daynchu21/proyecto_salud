@@ -67,12 +67,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    const locationAddress = await getLocation();
     setIsLoggedIn(false);
     setUserInfo(null); // <-- limpiar
     await AsyncStorage.removeItem("loggedIn");
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("user");
+    const locationAddress = await getLocation();
     SendEvents(EventTypeLog.AMBULANCE_DISCONNECTED, {
       Ciudad: !locationAddress ? "no habilitado" : locationAddress.city,
       direccion: !locationAddress

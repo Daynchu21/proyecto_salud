@@ -83,6 +83,7 @@ const request = async <T = any, R = any>({
   const config: RequestInit = {
     method,
     headers,
+    cache: "no-store",
     ...(body ? { body: JSON.stringify(body) } : {}),
   };
 

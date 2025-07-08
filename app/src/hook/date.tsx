@@ -14,13 +14,19 @@ export function formatDateTime(isoString: string): string {
   });
 }
 
-export const formatTime = (date: Date) =>
-  date.toLocaleTimeString("es-AR", {
+export const formatTime = (date: Date) => {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return "--:--:--"; // o lo que quieras mostrar en fallback
+  }
+  return date.toLocaleTimeString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
   });
+};
 
 export function getHourMinuteInArgentina(startTime: string) {
   const date = new Date(startTime);
@@ -105,18 +111,25 @@ export function getCurrentArgentineDateTimeTEST() {
 /**
  * Extrae solo HH:mm desde un ISO string (en hora Argentina)
  */
-export function getTimeDifferenceHHmm(isoDateStr: string) {
+export function getTimeDifferenceHHmm(
+  isoDateStr: string,
+  timeServerNow?: Date
+): string {
   const inputTime = DateTime.fromISO(isoDateStr, { zone: ARGENTINA_TIMEZONE });
-  const now = DateTime.now().setZone(ARGENTINA_TIMEZONE);
+
+  // Si pasaste timeServerNow (tipo Date), usalo como referencia, sino usa DateTime.now()
+  const now = timeServerNow
+    ? DateTime.fromJSDate(timeServerNow).setZone(ARGENTINA_TIMEZONE)
+    : DateTime.now().setZone(ARGENTINA_TIMEZONE);
 
   if (!inputTime.isValid) return "--:--";
 
   const diff = now.diff(inputTime).shiftTo("hours", "minutes").toObject();
 
-  const hours = Math.abs(Math.floor(diff.hours || 0))
+  const hours = Math.abs(Math.floor(diff.hours ?? 0))
     .toString()
     .padStart(2, "0");
-  const minutes = Math.abs(Math.floor(diff.minutes || 0))
+  const minutes = Math.abs(Math.floor(diff.minutes ?? 0))
     .toString()
     .padStart(2, "0");
 
@@ -141,4 +154,16 @@ export function formatLocalArgentineString(dateStr: string) {
   if (!dt.isValid) return "Fecha inválida";
 
   return dt.toFormat("dd/MM/yyyy HH:mm"); // Ej: "05 julio 2025 13:46"
+}
+
+/**
+ * Convierte un ISO string local Argentina a UTC ISO string
+ * útil para enviar al backend
+ */
+export function formatLocalArgentineStringWithOutFormat(dateStr: string): Date {
+  const dt = DateTime.fromISO(dateStr, { zone: ARGENTINA_TIMEZONE });
+
+  if (!dt.isValid) return new Date();
+
+  return dt.toJSDate(); // Ej: "05 julio 2025 13:46"
 }

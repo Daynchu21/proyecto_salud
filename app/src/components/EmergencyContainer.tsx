@@ -27,12 +27,14 @@ export default function EmergencyContainer({
   loadingButton,
   setShowAcceptConfirm,
   setShowNextStateConfirm,
+  timeServerNow, // Default to current date if not provided
 }: {
   emergencyInfo: EmergencyIF;
   ambulanciaId: string;
   loadingButton: boolean;
   setShowAcceptConfirm: (key: boolean) => void;
   setShowNextStateConfirm: (key: boolean) => void;
+  timeServerNow?: Date; // Optional, used for testing
 }) {
   const {
     prioridad,
@@ -125,7 +127,11 @@ export default function EmergencyContainer({
 
   return (
     <View style={[styles.container, { borderLeftColor: borderColor }]}>
-      <EmergencyInfoPills fechaLlamada={fechaLlamada} prioridad={prioridad} />
+      <EmergencyInfoPills
+        fechaLlamada={fechaLlamada}
+        prioridad={prioridad}
+        timeServerNow={timeServerNow}
+      />
 
       <View>
         <Text style={[styles.dateText, { color: textColor }]}>

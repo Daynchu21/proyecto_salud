@@ -12,21 +12,40 @@ import {
 export default function EmergencyInfoPills({
   fechaLlamada,
   prioridad,
+  timeServerNow,
 }: {
   fechaLlamada: string;
   prioridad: prioridadEN;
+  timeServerNow?: Date; // Optional, used for testing
 }) {
   const priorityLabel = getLabelByValue("EMERGENCY_PRIORITY_TYPES", prioridad);
   const { borderColor, backgroundColor, textColor } =
     getPriorityColor(prioridad);
 
+  const [timeDiff, setTimeDiff] = React.useState(() =>
+    getTimeDifferenceHHmm(fechaLlamada, new Date(timeServerNow ?? new Date()))
+  );
+
+  React.useEffect(() => {
+    const start = Date.now();
+    const serverBase = new Date(timeServerNow ?? new Date());
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const updatedServerNow = new Date(serverBase.getTime() + elapsed);
+
+      const diff = getTimeDifferenceHHmm(fechaLlamada, updatedServerNow);
+      setTimeDiff(diff);
+    }, 10000); // cada segundo; podés usar 60000 si solo querés minuto a minuto
+
+    return () => clearInterval(interval);
+  }, [fechaLlamada, timeServerNow]);
+
   return (
     <View style={styles.bubbles}>
       <View style={[styles.pill, styles.timePill]}>
         <Feather name="clock" size={16} color="#1976d2" style={styles.icon} />
-        <Text style={styles.timeText}>
-          {getTimeDifferenceHHmm(fechaLlamada)}
-        </Text>
+        <Text style={styles.timeText}>{timeDiff}</Text>
       </View>
 
       <View style={[styles.pill, { backgroundColor, borderColor }]}>

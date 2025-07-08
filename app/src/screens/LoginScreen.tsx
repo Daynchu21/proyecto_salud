@@ -22,13 +22,12 @@ export default function LoginScreen() {
   const { login } = useAuth();
 
   const handleLogin = async () => {
-    if (loading) return; // Previene múltiples clics
+    if (loading) return;
     setLoading(true);
     try {
       await login(usuario, contrasena);
-      // Redireccionar o mostrar feedback si es necesario
     } catch (error) {
-      // Ya se maneja en el AuthContext, pero podrías mostrar feedback local también
+      console.error("Error al iniciar sesión:", error);
     } finally {
       setLoading(false);
     }

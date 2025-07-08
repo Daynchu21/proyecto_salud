@@ -1,26 +1,54 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { formatTime } from "../hook/date";
 
-export default function LiveClock() {
-  const [time, setTime] = useState(new Date());
+interface ServerTimeComponentProps {
+  serverTime?: Date; // Puede ser undefined hasta que cargue
+}
+
+export const LiveClock: React.FC<ServerTimeComponentProps> = ({
+  serverTime,
+}) => {
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (!serverTime) return;
 
+    const start = Date.now();
+    const serverDate = new Date(serverTime); // convertir el string a Date
+    setCurrentTime(serverDate);
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const updatedTime = new Date(serverDate.getTime() + elapsed); // ✅ suma milisegundos
+      setCurrentTime(updatedTime);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [serverTime]);
+
+  if (!serverTime || !currentTime) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator
+          size="small"
+          color="#000"
+          style={{ width: "100%" }}
+        />
+      </View>
+    );
+  }
   return (
     <View style={styles.container}>
       <Ionicons name="time" size={20} color="black" style={styles.icon} />
       <Text style={styles.label}>
         <Text style={styles.labelText}>Hora actual: </Text>
-        {formatTime(time)}
+        {formatTime(currentTime)}
       </Text>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -29,8 +57,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 10,
     width: "100%",
-    elevation: 3, // sombra Android
-    shadowColor: "#000", // sombra iOS
+    elevation: 3,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -48,4 +76,16 @@ const styles = StyleSheet.create({
   labelText: {
     fontWeight: "bold",
   },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+  },
+  loadingText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: "#555",
+  },
 });
+
+export default LiveClock;

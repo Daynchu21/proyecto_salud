@@ -11,6 +11,7 @@ import {
 } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 import { ErrorProvider } from "./src/context/errorContext";
+import { ServerTimeProvider } from "./src/context/ServerTimeContext";
 import {
   setIsReady,
   setNavigator,
@@ -57,17 +58,19 @@ function InnerApp({
         }
       }}
     >
-      <ErrorProvider>
-        {isLoggedIn ? (
-          <WebSocketProvider user={userInfo}>
-            <ChatWebSocketProvider user={userInfo}>
-              <AppTabs />
-            </ChatWebSocketProvider>
-          </WebSocketProvider>
-        ) : (
-          <AuthStack />
-        )}
-      </ErrorProvider>
+      <ServerTimeProvider>
+        <ErrorProvider>
+          {isLoggedIn ? (
+            <WebSocketProvider user={userInfo}>
+              <ChatWebSocketProvider user={userInfo}>
+                <AppTabs />
+              </ChatWebSocketProvider>
+            </WebSocketProvider>
+          ) : (
+            <AuthStack />
+          )}
+        </ErrorProvider>
+      </ServerTimeProvider>
     </NavigationContainer>
   );
 }
