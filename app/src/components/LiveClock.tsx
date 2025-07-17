@@ -15,12 +15,12 @@ export const LiveClock: React.FC<ServerTimeComponentProps> = ({
   useEffect(() => {
     if (!serverTime) return;
 
-    const start = Date.now();
+    const start = performance.now();
     const serverDate = new Date(serverTime); // convertir el string a Date
     setCurrentTime(serverDate);
 
     const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
+      const elapsed = performance.now() - start;
       const updatedTime = new Date(serverDate.getTime() + elapsed); // ✅ suma milisegundos
       setCurrentTime(updatedTime);
     }, 1000);
@@ -28,7 +28,7 @@ export const LiveClock: React.FC<ServerTimeComponentProps> = ({
     return () => clearInterval(interval);
   }, [serverTime]);
 
-  if (!serverTime || !currentTime) {
+  if (!serverTime || !currentTime || currentTime === null) {
     return (
       <View style={styles.container}>
         <ActivityIndicator

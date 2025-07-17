@@ -11,12 +11,12 @@ export function useGetLocation() {
     try {
       setLoading(true);
       setErrorMsg(null);
-
+      /*
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         ErrorManager.showError("Permiso de ubicación denegado");
         return null;
-      }
+      }*/
 
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;

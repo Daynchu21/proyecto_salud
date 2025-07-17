@@ -146,6 +146,7 @@ export function getNextEmergencyState(
 ): string | null {
   const validSequence = [
     EstadoEmergencia.PENDIENTE,
+    EstadoEmergencia.DESPACHADA,
     EstadoEmergencia.EN_CAMINO,
     EstadoEmergencia.EN_SITIO,
     EstadoEmergencia.EN_TRASLADO,

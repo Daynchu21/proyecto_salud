@@ -17,6 +17,7 @@ import {
   setNavigator,
   setupNotificationHandler,
 } from "./src/hook/handlerNotification";
+import { useInitialPermissions } from "./src/hook/initialPermision";
 import AppTabs from "./src/navigation/AppTabs";
 import AuthStack from "./src/navigation/AuthStack";
 import AppBlockedScreen from "./src/utils/status-app";
@@ -25,8 +26,8 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
     shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
+    shouldShowBanner: true, // ✅ esto hace que se muestre la notificación en el banner
+    shouldShowList: true, // ✅ esto hace que se muestre en la lista de notificaciones
   }),
 });
 
@@ -46,7 +47,6 @@ function InnerApp({
   navigationRef: React.RefObject<NavigationContainerRef<any> | null>;
 }) {
   const { userInfo, isLoggedIn } = useAuth();
-
   return (
     <NavigationContainer
       ref={navigationRef}
@@ -78,6 +78,12 @@ function InnerApp({
 export default function App() {
   const [appBlocked, setAppBlocked] = React.useState(false);
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
+  useInitialPermissions();
+  React.useEffect(() => {
+    if (Platform.OS === "web") {
+      console.warn("⚠️ Notificaciones no disponibles en web");
+    }
+  }, []);
 
   React.useEffect(() => {
     const checkAppStatus = async () => {

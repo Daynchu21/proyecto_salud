@@ -65,6 +65,15 @@ export default function EmergencyContainer({
             <Text style={styles.buttonText}>Iniciar atención</Text>
           </TouchableOpacity>
         );
+      case EstadoEmergencia.DESPACHADA:
+        return (
+          <TouchableOpacity
+            style={styles.buttonOnWay}
+            onPress={() => setShowAcceptConfirm(true)}
+          >
+            <Text style={styles.buttonText}>cambiar a "unidad en camino"</Text>
+          </TouchableOpacity>
+        );
       case EstadoEmergencia.EN_CAMINO:
         return (
           <TouchableOpacity

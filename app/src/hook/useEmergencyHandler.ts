@@ -17,6 +17,7 @@ export function useEmergencyHandler(
   const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
   const [showNextStateConfirm, setShowNextStateConfirm] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoadingEmergency, setIsLoadingEmergency] = useState(true); // 👈 NUEVO
   const { sendEmergencyStateUpdate, sendEmergencyNotification } =
     useWebSocket();
 
@@ -34,6 +35,7 @@ export function useEmergencyHandler(
 
     try {
       setRefreshing(true);
+      setIsLoadingEmergency(true); // 👈 INICIO
 
       const resp = await EmergencyApi(userInfo.ambulanceId ?? 0);
 
@@ -49,6 +51,7 @@ export function useEmergencyHandler(
       );
     } finally {
       setRefreshing(false); // esto se asegura de siempre apagar el loading
+      setIsLoadingEmergency(false); // 👈 FIN
     }
   };
 
@@ -117,5 +120,6 @@ export function useEmergencyHandler(
     setShowAcceptConfirm,
     showNextStateConfirm,
     setShowNextStateConfirm,
+    isLoadingEmergency,
   };
 }

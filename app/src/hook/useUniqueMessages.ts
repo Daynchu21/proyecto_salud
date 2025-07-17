@@ -6,29 +6,42 @@ export const useUniqueMessages = () => {
 
   const addMessage = useCallback((newMessage: any) => {
     setMessages((prevMessages) => {
-      // Si el nuevo mensaje tiene un 'id' (es del servidor)
-      // Y si ya existe un mensaje con el mismo 'localId' pendiente, actualízalo
-      if (newMessage.id && newMessage.localId) {
-        const existingIndex = prevMessages.findIndex(
-          (msg) => msg.localId === newMessage.localId && msg.pending
-        );
-        if (existingIndex !== -1) {
-          const updatedMessages = [...prevMessages];
-          // Reemplaza el mensaje pendiente con el mensaje definitivo del servidor
-          updatedMessages[existingIndex] = { ...newMessage, pending: false };
-          return updatedMessages;
-        }
-      }
-
-      // Si el mensaje tiene un ID de servidor, asegúrate de no duplicarlo
+      // ✅ Si ya existe por ID exacto, no agregar
       if (
         newMessage.id &&
         prevMessages.some((msg) => msg.id === newMessage.id)
       ) {
-        return prevMessages; // Ya tenemos este mensaje del servidor
+        return prevMessages;
       }
 
-      // De lo contrario, simplemente añade el nuevo mensaje
+      // ✅ Reemplazo por localId (si viene desde WebSocket con localId)
+      if (newMessage.id && newMessage.localId) {
+        const index = prevMessages.findIndex(
+          (msg) => msg.localId === newMessage.localId && msg.pending
+        );
+        if (index !== -1) {
+          const updated = [...prevMessages];
+          updated[index] = { ...newMessage, pending: false };
+          return updated;
+        }
+      }
+
+      // ✅ Reemplazo heurístico si NO viene localId (por timestamp + contenido + pending)
+      if (newMessage.id) {
+        const index = prevMessages.findIndex(
+          (msg) =>
+            msg.pending &&
+            msg.content === newMessage.content &&
+            Math.abs(msg.timestamp - newMessage.timestamp) < 3000 // 3s de margen
+        );
+        if (index !== -1) {
+          const updated = [...prevMessages];
+          updated[index] = { ...newMessage, pending: false };
+          return updated;
+        }
+      }
+
+      // ✅ Si no hay duplicados ni reemplazo, agregar normalmente
       return [...prevMessages, newMessage];
     });
   }, []);

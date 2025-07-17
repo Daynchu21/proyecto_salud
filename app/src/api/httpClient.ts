@@ -24,7 +24,7 @@ const buildUrl = (
     ? "?" + new URLSearchParams(params as Record<string, string>).toString()
     : "";
   return `${
-    isDev
+    false
       ? process.env.EXPO_PUBLIC_LOCAL_API_URL
       : process.env.EXPO_PUBLIC_LOCAL_API_IP
   }${endpoint}${query}`;

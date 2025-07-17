@@ -69,6 +69,7 @@ export const WebSocketProvider = ({ children, user }: Props) => {
     closeRequestedRef.current = false;
 
     if (ws) {
+      closeRequestedRef.current = true;
       ws.onopen = null;
       ws.onmessage = null;
       ws.onerror = null;

@@ -13,7 +13,6 @@ const Tab = createBottomTabNavigator();
 
 export default function AppTabs() {
   const { totalUnreadCount } = useChatWebSocket();
-
   return (
     <Tab.Navigator
       screenOptions={{

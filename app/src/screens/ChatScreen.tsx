@@ -3,25 +3,20 @@ import React, { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { GetChats } from "../api/chats";
 import ChatMessagesCMP from "../components/ChatMessage";
-import { useChatWebSocket } from "../config/chatWebsocket";
 import { useLoadUserInfo } from "../hook/userInfo";
 
 export default function MessagesScreen() {
   const [selectedChat, setSelectedChat] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const { userInfo } = useLoadUserInfo();
-  const { isConnected: isWebSocketConnected } = useChatWebSocket();
+  const [loading, setLoading] = useState(true);
 
   const fetchChats = React.useCallback(async () => {
-    setLoading(true);
-
     try {
       const response = await GetChats();
       if (response && response.length > 0) {
         const firstChat = response[0];
         setSelectedChat(firstChat);
-        // }
       } else {
         if (selectedChat !== null) {
           setSelectedChat(null);
@@ -40,10 +35,10 @@ export default function MessagesScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (userInfo?.roles === "AMBULANCIA" && isWebSocketConnected) {
+      if (userInfo?.roles === "AMBULANCIA") {
         onRefresh();
       }
-    }, [userInfo, isWebSocketConnected])
+    }, [userInfo])
   );
 
   if (loading) {

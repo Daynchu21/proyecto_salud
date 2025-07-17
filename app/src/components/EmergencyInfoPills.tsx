@@ -27,11 +27,11 @@ export default function EmergencyInfoPills({
   );
 
   React.useEffect(() => {
-    const start = Date.now();
+    const start = performance.now();
     const serverBase = new Date(timeServerNow ?? new Date());
 
     const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
+      const elapsed = performance.now() - start;
       const updatedServerNow = new Date(serverBase.getTime() + elapsed);
 
       const diff = getTimeDifferenceHHmm(fechaLlamada, updatedServerNow);

@@ -1,12 +1,13 @@
-import { AudioModule, RecordingPresets, useAudioRecorder } from "expo-audio";
+import { RecordingPresets, useAudioRecorder } from "expo-audio";
 import * as FileSystem from "expo-file-system";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert } from "react-native";
 
 export const useChatAudio = (onSendAudio: (base64: string) => void) => {
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
 
+  /*
   useEffect(() => {
     const requestPermission = async () => {
       const status = await AudioModule.requestRecordingPermissionsAsync();
@@ -16,7 +17,7 @@ export const useChatAudio = (onSendAudio: (base64: string) => void) => {
     };
     requestPermission();
   }, []);
-
+*/
   const startRecording = async () => {
     try {
       await audioRecorder.prepareToRecordAsync();

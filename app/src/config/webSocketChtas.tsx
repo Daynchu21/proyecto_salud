@@ -217,6 +217,9 @@ export class ChatWebSocket {
 
   onConnectionChange(handler: ConnectionHandler): () => void {
     this.connectionHandlers.push(handler);
+    if (this.isConnected) {
+      handler(true);
+    }
     return () => {
       this.connectionHandlers = this.connectionHandlers.filter(
         (h) => h !== handler
@@ -304,6 +307,10 @@ export class ChatWebSocket {
 
   onRequestUnreadCounts(): void {
     this.sendChatMessageRaw({ type: "request_unread_counts" });
+  }
+
+  sendReadyForCounts(): void {
+    this.sendChatMessageRaw({ type: "ready_for_counts" });
   }
 
   // El resto de la clase no necesita cambios...

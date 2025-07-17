@@ -1,11 +1,8 @@
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "@react-navigation/native";
-import { RecordingPresets, useAudioPlayer, useAudioRecorder } from "expo-audio";
-import * as Notifications from "expo-notifications";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -17,10 +14,9 @@ import {
 import { GetChatIdMessages, SendMessage } from "../api/chats";
 import { userInfoIF } from "../api/users";
 import { useChatWebSocket } from "../config/chatWebsocket";
+import { useServerTime } from "../context/ServerTimeContext";
 import { formatDateTime } from "../hook/date";
-import { resendPendingMessages } from "../hook/resendPendingMessages";
 import { useUniqueMessages } from "../hook/useUniqueMessages";
-import { EventBus } from "../utils/EventBus";
 import { useChatAudio } from "./ChatAudioControls";
 import ChatAudioPlayer from "./ChatAudioPlayer";
 
@@ -43,224 +39,168 @@ interface ChatMessagesProps {
 }
 
 export default function ChatMessages({ chat }: ChatMessagesProps) {
-  const [newMessage, setNewMessage] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(true);
+  const [newMessage, setNewMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  const [user, setUserInfoRaw] = React.useState<userInfoIF>();
+  const [user, setUser] = useState<userInfoIF | null>(null);
   const { messages, addMessage, setAllMessages } = useUniqueMessages();
-  const isFocus = useIsFocused();
-  const isFocusRef = useRef(isFocus);
-
+  const isFocused = useIsFocused();
   const scrollViewRef = useRef<ScrollView>(null);
-  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const player = useAudioPlayer();
+  const currentUserId = user ? Number(user.id) : null;
 
-  const [, forceUpdate] = useState(0);
-  const { startRecording, stopRecording } = useChatAudio((base64Audio) => {
+  const { isRecording } = useChatAudio((base64Audio) => {
+    // send audio message via WebSocket
     sendChatMessageRaw({
       type: "chat_message",
       chatId: chat.id,
       audio: base64Audio,
     });
   });
-
-  useEffect(() => {
-    isFocusRef.current = isFocus;
-  }, [isFocus]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (player.playing) {
-        forceUpdate((prev) => prev + 1);
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [player]);
-
-  React.useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const raw = await AsyncStorage.getItem("user");
-        if (raw) {
-          const parsed: userInfoIF = JSON.parse(raw);
-          setUserInfoRaw(parsed);
-        }
-      } catch (error) {
-        console.error("Error al cargar el usuario:", error);
-      }
-    };
-
-    fetchUser();
-  }, []);
-
-  useEffect(() => {
-    const handleReconnect = () => {
-      resendPendingMessages(chat.id.toString(), loadMessagesOnce);
-    };
-
-    EventBus.on("websocket:reconnected", handleReconnect);
-
-    return () => {
-      EventBus.off("websocket:reconnected", handleReconnect);
-    };
-  }, [chat.id]);
-
+  const { serverTime } = useServerTime();
   const {
     sendChatMessage,
     sendChatMessageRaw,
     onChatMessage,
     onTyping,
     markChatAsRead,
+    isConnected,
   } = useChatWebSocket();
 
-  const currentUserId = Number(user?.id);
-
-  const loadMessagesOnce = async () => {
-    try {
-      setLoading(true);
-      const response = await GetChatIdMessages(chat.id.toString());
-      if (response) {
-        setAllMessages(response);
+  // Load stored user once
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem("user");
+        if (raw) setUser(JSON.parse(raw));
+      } catch (e) {
+        console.error("Error loading user:", e);
       }
-    } catch (error) {
-      Alert.alert("Error", "No se pudieron cargar los mensajes");
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+  }, []);
 
-  const scrollToBottom = () => {
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  };
+  // Fetch messages from API
+  const loadMessagesOnce = React.useCallback(async () => {
+    try {
+      const response = await GetChatIdMessages(chat.id.toString());
+      if (response) setAllMessages(response);
+    } catch {
+      Alert.alert("Error", "No se pudieron cargar los mensajes");
+    }
+  }, [chat.id, setAllMessages]);
 
   const messageHandler = React.useCallback(
     (message: any) => {
       addMessage(message);
-      scrollToBottom();
-      if (isFocusRef.current && message.sender.id !== user?.id) {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+      if (isFocused && message.sender.id !== currentUserId) {
         markChatAsRead(chat.id);
       }
-      if (
-        message.sender.id !== user?.id &&
-        message.sender.roles !== "AMBULANCIA"
-      ) {
-        Notifications.scheduleNotificationAsync({
-          content: {
-            title: `Nuevo mensaje de ${message.sender.firstName}`,
-            body: message.content ?? "Mensaje de audio",
-            data: { chatId: chat.id },
-          },
-          trigger: null,
-        });
-      }
     },
-    [addMessage, scrollToBottom, user?.id, chat.id, isFocus]
+    [addMessage, chat.id, currentUserId, isFocused, markChatAsRead]
   );
 
   const typingHandler = React.useCallback(
     (userId: number, isTyping: boolean) => {
-      if (userId !== currentUserId) {
-        setTypingUsers((prev) => {
-          const stringUserId = String(userId);
-          return isTyping
-            ? [...new Set([...prev, stringUserId])]
-            : prev.filter((id) => id !== stringUserId);
-        });
-      }
+      if (userId === currentUserId) return;
+      setTypingUsers((prev) => {
+        const setIds = new Set(prev);
+        const idStr = String(userId);
+        isTyping ? setIds.add(idStr) : setIds.delete(idStr);
+        return Array.from(setIds);
+      });
     },
     [currentUserId]
   );
 
   useEffect(() => {
-    // Load messages only when chat.id changes
-    if (chat.id && isFocus) {
-      loadMessagesOnce().then(() => {
-        markChatAsRead(chat.id);
-      });
-    }
+    if (!isFocused) return;
+    loadMessagesOnce().then(() => markChatAsRead(chat.id));
 
-    // Subscribe to websocket events
-    const unsubscribeMessage = onChatMessage(chat.id, messageHandler);
-    const unsubscribeTyping = onTyping(chat.id, typingHandler);
-
+    const unsubMsg = onChatMessage(chat.id, messageHandler);
+    const unsubType = onTyping(chat.id, typingHandler);
     return () => {
-      unsubscribeMessage();
-      unsubscribeTyping();
+      unsubMsg();
+      unsubType();
     };
-  }, []);
+  }, [
+    chat.id,
+    isFocused,
+    loadMessagesOnce,
+    markChatAsRead,
+    onChatMessage,
+    onTyping,
+    messageHandler,
+    typingHandler,
+  ]);
 
-  const handleInputChange = (text: string) => {
-    setNewMessage(text);
-    // Opcional: agregar lógica para notificaciones de escritura
-  };
+  const handleSubmit = React.useCallback(async () => {
+    const trimmed = newMessage.trim();
+    if (!trimmed) return;
 
-  const handleSubmit = async () => {
-    if (!newMessage.trim()) return;
-
-    const messageToSend = newMessage;
+    const localId = `local_${serverTime}_${Math.random()
+      .toString(36)
+      .slice(2, 9)}`;
     setNewMessage("");
+    addMessage({
+      content: trimmed,
+      timestamp: serverTime,
+      sender: user,
+      id: localId,
+      localId,
+      pending: true,
+    });
 
     try {
-      const success = sendChatMessage(chat.id, messageToSend);
-      if (!success) {
-        throw new Error("WebSocket failed");
-      }
-      // If WebSocket sends successfully, add message to local state immediately
-      addMessage({
-        content: messageToSend,
-        timestamp: Date.now(),
-        sender: user, // Assuming 'user' is the sender
-        id: `local_${Date.now()}`, // Add a temporary ID for local display
-      });
-      // No need to call onMessageSent if it was for refetching chats
+      const success = sendChatMessage(chat.id, trimmed, undefined, { localId });
+      if (!success) throw new Error("WebSocket failed");
     } catch {
       try {
-        await SendMessage(chat.id.toString(), messageToSend);
-        loadMessagesOnce(); // Reload messages to ensure consistency after API send
-        // No need to call onMessageSent if it was for refetching chats
+        await SendMessage(chat.id.toString(), trimmed);
+        loadMessagesOnce();
       } catch {
-        await savePendingMessage(chat.id.toString(), messageToSend);
+        await savePendingMessage(chat.id.toString(), trimmed, localId);
         Alert.alert(
           "Sin conexión",
           "Tu mensaje será enviado cuando vuelvas a estar online."
         );
       }
     }
-  };
+  }, [
+    newMessage,
+    serverTime,
+    user,
+    addMessage,
+    chat.id,
+    sendChatMessage,
+    loadMessagesOnce,
+  ]);
 
-  const savePendingMessage = async (chatId: string, content: string) => {
-    const pendingKey = `pending_messages_${chatId}`;
-    const message = {
-      content,
-      timestamp: Date.now(),
-      sender: user,
-      pending: true,
-      localId: `${chatId}_${Date.now()}`,
-    };
-
-    const stored = await AsyncStorage.getItem(pendingKey);
-    const messages = stored ? JSON.parse(stored) : [];
-    messages.push(message);
-    await AsyncStorage.setItem(pendingKey, JSON.stringify(messages));
-
-    addMessage(message);
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  // Persist pending
+  const savePendingMessage = React.useCallback(
+    async (chatId: string, content: string, localId: string) => {
+      const key = `pending_messages_${chatId}`;
+      const msg = {
+        content,
+        timestamp: Date.now(),
+        sender: user,
+        pending: true,
+        localId,
+      };
+      const stored = await AsyncStorage.getItem(key);
+      const arr = stored ? JSON.parse(stored) : [];
+      arr.push(msg);
+      await AsyncStorage.setItem(key, JSON.stringify(arr));
+    },
+    [user]
+  );
 
   return (
     <View style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.messagesContainer}
-        onContentSizeChange={scrollToBottom}
+        onContentSizeChange={() =>
+          scrollViewRef.current?.scrollToEnd({ animated: true })
+        }
       >
         {messages.map((msg: any) => {
           const isMine = msg.sender.id === user?.id;
@@ -331,36 +271,45 @@ export default function ChatMessages({ chat }: ChatMessagesProps) {
           );
         })}
       </ScrollView>
-
+      {!isConnected && (
+        <View style={styles.connectionWarning}>
+          <Text style={styles.connectionWarningText}>
+            ⚠️ No hay conexión con el chat
+          </Text>
+        </View>
+      )}
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
+          style={isConnected ? styles.input : styles.inputDisabled}
           value={newMessage}
-          onChangeText={handleInputChange}
+          onChangeText={setNewMessage}
           placeholder="Escribe un mensaje..."
           multiline
+          editable={isConnected}
         />
-        {newMessage.length === 0 ? (
+        {newMessage ? (
           <TouchableOpacity
             style={styles.sendButton}
-            onPress={audioRecorder.isRecording ? stopRecording : startRecording}
+            onPress={handleSubmit}
+            disabled={!isConnected}
+          >
+            <FontAwesome name="send" size={20} color="#fff" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={isConnected ? styles.sendButton : styles.sendButtonDisabled}
+            onPress={
+              isConnected ? (useChatAudio as any).toggleRecording : undefined
+            }
+            disabled={!isConnected}
           >
             <FontAwesome
-              name={audioRecorder.isRecording ? "stop" : "microphone"}
+              name={isRecording ? "stop" : "microphone"}
               size={20}
               color="#fff"
             />
           </TouchableOpacity>
-        ) : null}
-        {newMessage.length !== 0 ? (
-          <TouchableOpacity
-            style={styles.sendButton}
-            onPress={handleSubmit}
-            disabled={!newMessage.trim()}
-          >
-            <FontAwesome name="send" size={20} color="#fff" />
-          </TouchableOpacity>
-        ) : null}
+        )}
       </View>
     </View>
   );
@@ -410,6 +359,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginRight: 10,
   },
+  inputDisabled: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginRight: 10,
+    backgroundColor: "#f0f0f0", // Indicate disabled state
+  },
   sendButton: {
     width: 40,
     height: 40,
@@ -418,5 +377,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  sendButtonDisabled: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#ccc", // Indicate disabled state
+    justifyContent: "center",
+    alignItems: "center",
+  },
   toggleInfo: { textAlign: "center", marginVertical: 10, color: "#007AFF" },
+  connectionWarning: {
+    backgroundColor: "#fff8e1",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderTopWidth: 1,
+    borderColor: "#ffeb3b",
+  },
+
+  connectionWarningText: {
+    color: "#f9a825",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
 });

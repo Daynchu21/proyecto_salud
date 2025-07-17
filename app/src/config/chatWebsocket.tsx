@@ -143,6 +143,7 @@ export const ChatWebSocketProvider: React.FC<ChatWebSocketProviderProps> = ({
   const [unreadMessagesByChat, setUnreadMessagesByChat] =
     useState<UnreadMessages>({});
   const chatWSRef = useRef<ReturnType<typeof getChatWebSocket> | null>(null);
+  const initializedRef = useRef(false);
 
   const playNotificationSound = useNotificationSound();
   // Ensure user.id is parsed to a number consistently for WebSocket interactions
@@ -158,10 +159,13 @@ export const ChatWebSocketProvider: React.FC<ChatWebSocketProviderProps> = ({
       if (connected) {
         setError(null);
         EventBus.emit("websocket:reconnected");
+        chatWSRef.current?.sendChatMessageRaw({
+          type: "request_unread_counts",
+        });
         await resendAllPendingMessages();
       }
     },
-    [chatWebSocket] // Depend on chatWebSocket to call onRequestUnreadCounts
+    [] // Depend on chatWebSocket to call onRequestUnreadCounts
   );
 
   const handleWebSocketError = useCallback((errorMessage: string) => {
@@ -218,56 +222,58 @@ export const ChatWebSocketProvider: React.FC<ChatWebSocketProviderProps> = ({
     []
   );
 
-  // --- Main WebSocket Connection Effect ---
+  useEffect(() => {
+    if (!chatWebSocket) return;
+
+    const unsubscribe = chatWebSocket.onConnectionChange(
+      handleConnectionChange
+    );
+
+    return () => {
+      unsubscribe(); // Limpia el handler al desmontar o cambiar instancia
+    };
+  }, [chatWebSocket, handleConnectionChange]);
 
   useEffect(() => {
-    if (!user || isNaN(userIdAsNumber) || !user.roles) {
-      console.warn(
-        "ChatWebSocketProvider: User object is incomplete or invalid, cannot establish WebSocket connection."
-      );
-      return;
+    const hasUser = !!user?.id;
+    const validUserId = !isNaN(userIdAsNumber);
+    const hasRoles =
+      (Array.isArray(user.roles) && user.roles.length > 0) ||
+      (typeof user.roles === "string" && user.roles.trim() !== "");
+    if (!hasUser || !validUserId || !hasRoles) {
+      return; // esperamos al login
+    }
+    if (initializedRef.current) {
+      return; // ya lo hicimos antes
     }
 
-    if (!chatWSRef.current) {
-      const wsInstance = getChatWebSocket(user.id, user.roles, appState);
-      wsInstance.connect();
-      chatWSRef.current = wsInstance;
-      setChatWebSocket(wsInstance);
-    }
+    const ws = getChatWebSocket(user.id, user.roles, appState);
+    chatWSRef.current = ws;
+    setChatWebSocket(ws);
 
-    const ws = chatWSRef.current;
-
-    const cleanupHandlers = [
+    const unsubscribes = [
+      ws.onInitialUnreadCounts(handleInitialUnreadCounts),
       ws.onConnectionChange(handleConnectionChange),
       ws.onError(handleWebSocketError),
       ws.onChatMessages(handleNewChatMessage),
-      ws.onInitialUnreadCounts(handleInitialUnreadCounts),
       ws.onUnreadCountsUpdated(handleUnreadCountsUpdated),
       ws.onChatReadStatusUpdated(handleChatReadStatusUpdated),
     ];
 
+    ws.connect();
+
+    initializedRef.current = true;
+
     return () => {
-      cleanupHandlers.forEach((unsubscribe) => unsubscribe());
-      // NOTA: no llamamos disconnect() aquí
+      unsubscribes.forEach((u) => u());
     };
   }, [
-    userIdAsNumber,
     user?.id,
-    user?.roles,
-    handleConnectionChange,
-    handleWebSocketError,
-    handleNewChatMessage,
-    handleInitialUnreadCounts,
-    handleUnreadCountsUpdated,
-    handleChatReadStatusUpdated,
+    userIdAsNumber,
+    // Transformamos roles a string para que React compare bien su identidad:
+    JSON.stringify(user.roles),
+    // appState: solo si realmente cambia de forma relevante; si no, sácalo de aquí
   ]);
-
-  useEffect(() => {
-    return () => {
-      chatWSRef.current?.disconnect();
-      chatWSRef.current = null;
-    };
-  }, [user?.id]);
 
   // --- App State Change Effect for Reconnection ---
   useEffect(() => {

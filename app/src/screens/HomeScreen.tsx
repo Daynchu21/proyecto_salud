@@ -7,6 +7,7 @@ import {
 import React, { useEffect } from "react";
 import {
   Alert,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -47,6 +48,7 @@ export default function HomeScreen() {
     setShowNextStateConfirm,
     refreshing,
     setRefreshing,
+    isLoadingEmergency,
   } = useEmergencyHandler(userInfo, setLoadingButton);
 
   useFocusEffect(
@@ -145,6 +147,18 @@ export default function HomeScreen() {
     }
   };
 
+  if (isLoadingEmergency) {
+    return (
+      <View style={styles.centeredContainer}>
+        <Image
+          source={require("../../../assets/loading_GIF.gif")}
+          style={styles.gif}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
@@ -224,5 +238,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
+  },
+  gif: {
+    width: 150,
+    height: 150,
   },
 });

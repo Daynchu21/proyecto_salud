@@ -6,7 +6,7 @@ export async function registerForPushNotificationsAsync() {
     alert("Necesitás un dispositivo físico para probar push");
     return;
   }
-
+  /*
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
   if (existingStatus !== "granted") {
@@ -17,7 +17,7 @@ export async function registerForPushNotificationsAsync() {
   if (finalStatus !== "granted") {
     alert("No se otorgaron permisos para notificaciones");
     return;
-  }
+  }*/
 
   try {
     const token = await Notifications.getDevicePushTokenAsync();

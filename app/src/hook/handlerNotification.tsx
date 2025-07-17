@@ -21,6 +21,7 @@ export const navigateTo = (screen: string, params: any = {}) => {
 };
 
 export const setupNotificationHandler = () => {
+  // Navegación al tocar la notificación
   Notifications.addNotificationResponseReceivedListener((response) => {
     const data = response.notification.request.content.data;
 
