@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import AppWrapper from "./src/components/AppWrapper";
 import { WebSocketProvider } from "./src/components/web-sockets";
 import { ChatWebSocketProvider } from "./src/config/chatWebsocket";
@@ -20,7 +20,6 @@ import {
 import { useInitialPermissions } from "./src/hook/initialPermision";
 import AppTabs from "./src/navigation/AppTabs";
 import AuthStack from "./src/navigation/AuthStack";
-import AppBlockedScreen from "./src/utils/status-app";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -76,7 +75,6 @@ function InnerApp({
 }
 
 export default function App() {
-  const [appBlocked, setAppBlocked] = React.useState(false);
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
   useInitialPermissions();
   React.useEffect(() => {
@@ -85,45 +83,10 @@ export default function App() {
     }
   }, []);
 
-  React.useEffect(() => {
-    const checkAppStatus = async () => {
-      try {
-        const response = await fetch(
-          process.env.EXPO_PUBLIC_API_KEY_STATUS + "/estado-app"
-        );
-
-        if (!response.ok) {
-          console.warn(
-            "⚠️ El servidor respondió con un error. No se bloqueará la app."
-          );
-          return;
-        }
-
-        const data: { activo: boolean } = await response.json();
-        if (data && data.activo === false) {
-          setAppBlocked(true);
-          Alert.alert(
-            "Acceso bloqueado",
-            "Tu aplicación ha sido desactivada. Contacta al proveedor."
-          );
-        }
-      } catch (error) {
-        console.error("❌ Error al verificar el estado de la app:", error);
-        // No hacer nada si no hay respuesta o hay error de red
-      }
-    };
-
-    checkAppStatus();
-  }, []);
-
   return (
     <AppWrapper>
       <AuthProvider>
-        {appBlocked ? (
-          <AppBlockedScreen />
-        ) : (
-          <InnerApp navigationRef={navigationRef} />
-        )}
+        <InnerApp navigationRef={navigationRef} />
       </AuthProvider>
     </AppWrapper>
   );
