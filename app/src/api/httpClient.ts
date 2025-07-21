@@ -1,0 +1,120 @@
+// src/api/httpClient.ts
+import { triggerLogout } from "../utils/authHandler";
+import { ErrorManager } from "../utils/errorHandler";
+
+//const BASE_URL = process.env.EXPO_PUBLIC_LOCAL_API_IP;
+
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+
+interface RequestOptions<T> {
+  method: HttpMethod;
+  endpoint: string;
+  body?: T;
+  params?: Record<string, string | number>;
+  token?: string;
+}
+
+const buildUrl = (
+  endpoint: string,
+  params?: Record<string, string | number>
+): string => {
+  const isDev = process.env.NODE_ENV !== "production";
+
+  const query = params
+    ? "?" + new URLSearchParams(params as Record<string, string>).toString()
+    : "";
+  return `${
+    false
+      ? process.env.EXPO_PUBLIC_LOCAL_API_URL
+      : process.env.EXPO_PUBLIC_LOCAL_API_IP
+  }${endpoint}${query}`;
+};
+
+const defaultHeaders = {
+  "Content-Type": "application/json",
+};
+
+const handleResponse = async <R>(response: Response): Promise<R> => {
+  try {
+    const contentType = response.headers.get("Content-Type") || "";
+    let data: R | null = null;
+
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    }
+    if (!response.ok) {
+      if (response.status === 403) {
+        console.warn(
+          "🔒 Sesión expirada o acceso denegado. Cerrando sesión..."
+        );
+        await triggerLogout(); // esta función debería limpiar la sesión y redirigir al login
+        throw new Error("Sesión expirada");
+      } else if (response.status === 401) {
+        const errorMessage = (response as any)?.message || "Sin Autorización";
+        await triggerLogout();
+        throw new Error(errorMessage);
+      } else {
+        const errorMessage =
+          (response as any)?.message || "Error en la petición";
+        throw new Error(errorMessage);
+      }
+    }
+
+    return data!;
+  } catch (error: any) {
+    ErrorManager.showError(error.message || error.Error || "Error desconocido");
+    throw error;
+  }
+};
+
+const request = async <T = any, R = any>({
+  method,
+  endpoint,
+  body,
+  params,
+  token,
+}: RequestOptions<T>): Promise<R> => {
+  const url = buildUrl(endpoint, params);
+  const headers: HeadersInit = {
+    ...defaultHeaders,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  const config: RequestInit = {
+    method,
+    headers,
+    cache: "no-store",
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  };
+
+  try {
+    const response = await fetch(url, config);
+    return await handleResponse<R>(response);
+  } catch (error: any) {
+    ErrorManager.showError(error.message || error.Error || "Error desconocido");
+    throw error;
+  }
+};
+
+// Métodos de uso directo
+const get = <R = any>(
+  endpoint: string,
+  params?: Record<string, string | number>,
+  token?: string
+) => request<undefined, R>({ method: "GET", endpoint, params, token });
+
+const post = <T = any, R = any>(endpoint: string, body: T, token?: string) =>
+  request<T, R>({ method: "POST", endpoint, body, token });
+
+const put = <T = any, R = any>(endpoint: string, body: T, token?: string) =>
+  request<T, R>({ method: "PUT", endpoint, body, token });
+
+const del = <R = any>(endpoint: string, token?: string) =>
+  request<undefined, R>({ method: "DELETE", endpoint, token });
+
+export default {
+  get,
+  post,
+  put,
+  delete: del,
+};
