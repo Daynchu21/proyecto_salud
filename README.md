@@ -1,54 +1,36 @@
-# proyecto_salud
+# 🚑 Emergency Tracking App
 
-mini proyecto para san juan en el que va a tener un chat y comunicado con ambulancias
+A **React Native (Expo)** mobile application designed for real-time **ambulance tracking and emergency management**.  
+The app allows operators and ambulance staff to communicate instantly, track locations in real time, and manage incidents efficiently.  
 
-# Welcome to your Expo app 👋
+---
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## 🚀 Features
 
-## Get started
+- 🔐 **Secure login system** for ambulance staff and operators  
+- 📍 **Real-time location tracking** of ambulances assigned to emergencies (via WebSocket)  
+- 💬 **Live chat** with WebSocket support (text + audio messages) between ambulance crew and operator  
+- 🔔 **Push notifications** using Firebase Cloud Messaging (FCM)  
+- 🎧 **Audio message support** for hands-free communication in critical situations  
+- ✅ **Testing with best practices** to ensure reliability and maintainability  
+- 🌐 **Multi-platform support** (iOS, Android, Web) via Expo  
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 🛠️ Tech Stack
 
-2. Start the app
+- **Mobile Framework:** [React Native](https://reactnative.dev/) (Expo)  
+- **Real-time Communication:** WebSockets  
+- **Push Notifications:** Firebase Cloud Messaging (FCM)  
+- **Build & Deploy:** Expo Application Services (EAS)  
+- **Code Quality:** Linting + Testing with best practices  
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 📦 Installation & Setup
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Clone the repository:
 
 ```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+git clone https://github.com/tuusuario/emergency-tracking-app.git
+cd emergency-tracking-app
