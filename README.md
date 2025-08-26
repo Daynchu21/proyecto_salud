@@ -33,4 +33,4 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/tuusuario/emergency-tracking-app.git
-cd emergency-tracking-app
+cd proyecto_salud
